@@ -1,0 +1,65 @@
+# ── Secrets ──────────────────────────────────────────
+.env
+backend/.env
+
+# ── Database (replaced by Neon) ──────────────────────
+backend/instance/
+*.db
+
+# ── Uploaded images (replaced by Cloudinary) ─────────
+backend/uploads/
+
+# ── Python virtual environment ────────────────────────
+venv/
+backend/venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# ── ML models (too large for GitHub) ─────────────────
+*.keras
+*.h5
+*.tflite
+
+# ── JSON class index files (small, safe to include) ───
+# (these are NOT ignored — they're needed for inference)
+
+# ── Training data (gigabytes, not needed) ─────────────
+backend/dataset_downloads/
+backend/training_data/
+backend/concern_training_data/
+backend/concern_training_data_v2/
+backend/concern_training_data_v3/
+
+# ── Node modules ──────────────────────────────────────
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# ── OS / editor junk ──────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+backend/ml_model/*.keras
+backend/ml_model/*.h5
+backend/ml_model/*.h5.bak
+backend/ml_model/*.png
+backend/ml_model/audit_suspects.txt
+
+backend/test_uploads/
+
+backend/uploads/
+backend/test_uploads/
+*/__pycache__/
+**/__pycache__/
+backend/acne
+backend/darkcircle
+backend/wrinkles
+backend/services/*.tflite

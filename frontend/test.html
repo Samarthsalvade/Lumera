@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Luméra — Skin Analysis</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cream:   #f7f3ee;
+      --sand:    #e8ddd0;
+      --blush:   #c9a98a;
+      --bronze:  #8b6348;
+      --deep:    #2c1f14;
+      --muted:   #7a6a5a;
+      --white:   #fdfaf7;
+      --green:   #4a7c59;
+      --red:     #b85450;
+    }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--cream);
+      font-family: 'DM Sans', sans-serif;
+      color: var(--deep);
+    }
+
+    /* ── Grain overlay ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 9999;
+    }
+
+    .page { max-width: 680px; margin: 0 auto; padding: 48px 24px 80px; }
+
+    /* ── Header ── */
+    .header { text-align: center; margin-bottom: 48px; }
+    .header-eyebrow {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 10px; font-weight: 500;
+      letter-spacing: 0.25em; text-transform: uppercase;
+      color: var(--blush); margin-bottom: 12px;
+    }
+    .header h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(42px, 8vw, 64px);
+      font-weight: 300; line-height: 1;
+      color: var(--deep);
+    }
+    .header h1 em { font-style: italic; color: var(--bronze); }
+    .header-sub {
+      margin-top: 12px;
+      font-size: 13px; color: var(--muted); font-weight: 300;
+    }
+
+    /* ── Mode switcher ── */
+    .mode-switcher {
+      display: flex; gap: 0;
+      border: 1px solid var(--sand);
+      border-radius: 12px; overflow: hidden;
+      margin-bottom: 32px;
+      background: var(--white);
+    }
+    .mode-btn {
+      flex: 1; padding: 14px 16px;
+      border: none; background: transparent;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px; font-weight: 400;
+      color: var(--muted); cursor: pointer;
+      transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .mode-btn.active {
+      background: var(--deep); color: var(--cream);
+    }
+    .mode-btn:not(.active):hover { background: var(--sand); }
+    .mode-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    /* ── Alerts ── */
+    .alert {
+      display: none; padding: 12px 16px; border-radius: 10px;
+      font-size: 13px; margin-bottom: 20px; line-height: 1.5;
+    }
+    .alert.show { display: block; }
+    .alert-error   { background: #fdf0f0; border: 1px solid #f0c0c0; color: var(--red); }
+    .alert-warning { background: #fdf8ee; border: 1px solid #e8d8a0; color: #7a5c1e; }
+    .alert-success { background: #edf6f0; border: 1px solid #b0d8bc; color: var(--green); }
+
+    /* ── Card ── */
+    .card {
+      background: var(--white);
+      border: 1px solid var(--sand);
+      border-radius: 20px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .card-body { padding: 28px; }
+    .card-label {
+      font-size: 10px; font-weight: 500;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--blush); margin-bottom: 16px;
+    }
+
+    /* ── Upload zone ── */
+    .upload-zone {
+      border: 1.5px dashed var(--sand);
+      border-radius: 14px; padding: 48px 24px;
+      text-align: center; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .upload-zone:hover { border-color: var(--blush); background: var(--cream); }
+    .upload-icon {
+      width: 48px; height: 48px; margin: 0 auto 16px;
+      border-radius: 50%; background: var(--cream);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .upload-icon svg { width: 22px; height: 22px; color: var(--blush); }
+    .upload-title { font-size: 15px; font-weight: 400; color: var(--deep); margin-bottom: 4px; }
+    .upload-sub { font-size: 12px; color: var(--muted); }
+    .upload-preview { display: none; }
+    .upload-preview img {
+      max-height: 280px; width: 100%; object-fit: contain;
+      border-radius: 10px; margin-bottom: 12px;
+    }
+    .upload-change { font-size: 12px; color: var(--blush); cursor: pointer; }
+    .upload-change:hover { text-decoration: underline; }
+
+    /* ── Camera zone ── */
+    .camera-zone { display: none; }
+    .camera-zone.show { display: block; }
+    .upload-section { display: block; }
+    .upload-section.hide { display: none; }
+
+    .camera-container {
+      position: relative; border-radius: 14px; overflow: hidden;
+      background: #000; aspect-ratio: 4/3;
+    }
+    #cameraFeed {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    /* Face guide overlay */
+    .face-guide {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+    .face-oval {
+      width: 45%; aspect-ratio: 3/4;
+      border: 2px solid rgba(255,255,255,0.6);
+      border-radius: 50%;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,0.25);
+    }
+    .camera-hint {
+      position: absolute; bottom: 16px; left: 0; right: 0;
+      text-align: center; color: rgba(255,255,255,0.85);
+      font-size: 12px; font-weight: 300;
+    }
+
+    .camera-controls {
+      display: flex; gap: 12px; margin-top: 16px; align-items: center;
+    }
+    .btn-capture {
+      flex: 1; height: 52px;
+      background: var(--deep); color: var(--cream);
+      border: none; border-radius: 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px; font-weight: 400; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: opacity 0.2s;
+    }
+    .btn-capture:hover { opacity: 0.85; }
+    .btn-capture svg { width: 18px; height: 18px; }
+    .btn-flip {
+      width: 52px; height: 52px; flex-shrink: 0;
+      background: var(--sand); color: var(--deep);
+      border: none; border-radius: 12px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s;
+    }
+    .btn-flip:hover { background: var(--blush); color: var(--white); }
+    .btn-flip svg { width: 18px; height: 18px; }
+
+    /* Camera photo taken preview */
+    .camera-taken { display: none; }
+    .camera-taken.show { display: block; }
+    .camera-taken img {
+      width: 100%; border-radius: 14px; margin-bottom: 12px;
+      object-fit: contain; max-height: 280px;
+    }
+    .retake-link { font-size: 12px; color: var(--blush); cursor: pointer; }
+    .retake-link:hover { text-decoration: underline; }
+
+    /* ── Analyse button ── */
+    .btn-analyse {
+      width: 100%; height: 54px;
+      background: var(--bronze); color: var(--white);
+      border: none; border-radius: 14px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px; font-weight: 400; cursor: pointer;
+      letter-spacing: 0.02em;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      transition: all 0.2s; margin-top: 20px;
+    }
+    .btn-analyse:hover:not(:disabled) { background: var(--deep); }
+    .btn-analyse:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Processing ── */
+    .processing { display: none; text-align: center; padding: 32px; }
+    .processing.show { display: block; }
+    .spinner {
+      width: 36px; height: 36px; margin: 0 auto 16px;
+      border: 2px solid var(--sand);
+      border-top-color: var(--bronze);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .processing-label {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 22px; font-weight: 300; color: var(--deep);
+      margin-bottom: 6px;
+    }
+    .processing-sub { font-size: 12px; color: var(--muted); }
+
+    /* ── Results ── */
+    .results { display: none; }
+    .results.show { display: block; }
+
+    /* Before/After */
+    .images-row {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+      margin-bottom: 24px;
+    }
+    .img-block { text-align: center; }
+    .img-label {
+      font-size: 10px; font-weight: 500; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+    }
+    .img-label.accent { color: var(--bronze); }
+    .img-block img {
+      width: 100%; border-radius: 12px;
+      border: 1px solid var(--sand); object-fit: cover;
+      aspect-ratio: 1;
+    }
+    .img-block img.accent-border { border-color: var(--blush); border-width: 2px; }
+    .face-conf {
+      margin-top: 10px; display: inline-flex; align-items: center; gap: 6px;
+      background: #edf6f0; border: 1px solid #b0d8bc;
+      color: var(--green); border-radius: 8px;
+      padding: 6px 12px; font-size: 12px;
+    }
+
+    /* Skin type result */
+    .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+    .result-tile {
+      background: var(--cream); border-radius: 14px;
+      padding: 20px; text-align: center;
+    }
+    .result-tile-label {
+      font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 8px;
+    }
+    .result-tile-value {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 34px; font-weight: 400; color: var(--bronze);
+    }
+
+    /* Recs */
+    .recs-label {
+      font-size: 11px; font-weight: 500; letter-spacing: 0.15em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 12px;
+    }
+    .rec-item {
+      display: flex; gap: 12px; align-items: flex-start;
+      padding: 12px 0; border-bottom: 1px solid var(--sand);
+      font-size: 13px; color: var(--deep); line-height: 1.5;
+    }
+    .rec-item:last-child { border-bottom: none; }
+    .rec-num {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18px; color: var(--blush); flex-shrink: 0;
+      line-height: 1.3;
+    }
+
+    /* Reset */
+    .btn-reset {
+      width: 100%; height: 46px; margin-top: 20px;
+      background: transparent; color: var(--bronze);
+      border: 1.5px solid var(--sand);
+      border-radius: 12px; cursor: pointer;
+      font-family: 'DM Sans', sans-serif; font-size: 13px;
+      transition: all 0.2s;
+    }
+    .btn-reset:hover { border-color: var(--blush); background: var(--cream); }
+
+    /* hidden canvas for capture */
+    #captureCanvas { display: none; }
+
+    /* Camera permission error */
+    .cam-error {
+      text-align: center; padding: 40px 20px; color: var(--muted);
+    }
+    .cam-error svg { width: 40px; height: 40px; margin: 0 auto 12px; display: block; color: var(--sand); }
+    .cam-error p { font-size: 13px; line-height: 1.6; }
+
+    @media (max-width: 480px) {
+      .result-grid { grid-template-columns: 1fr; }
+      .images-row  { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <header class="header">
+    <p class="header-eyebrow">Skin Intelligence</p>
+    <h1>Lu<em>méra</em></h1>
+    <p class="header-sub">Test Environment · Real-time Face Analysis</p>
+  </header>
+
+  <!-- Mode switcher -->
+  <div class="mode-switcher">
+    <button class="mode-btn active" id="btnModeUpload" onclick="setMode('upload')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+      </svg>
+      Upload Photo
+    </button>
+    <button class="mode-btn" id="btnModeCamera" onclick="setMode('camera')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+          d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+      </svg>
+      Live Camera
+    </button>
+  </div>
+
+  <!-- Alerts -->
+  <div class="alert alert-error"   id="alertError"></div>
+  <div class="alert alert-warning" id="alertWarning"></div>
+  <div class="alert alert-success" id="alertSuccess"></div>
+
+  <!-- Input card -->
+  <div class="card" id="inputCard">
+    <div class="card-body">
+
+      <!-- ── UPLOAD mode ── -->
+      <div id="uploadSection" class="upload-section">
+        <p class="card-label">Select Image</p>
+        <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp" style="display:none"/>
+
+        <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+          <div class="upload-icon">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+          </div>
+          <p class="upload-title">Click to select a photo</p>
+          <p class="upload-sub">PNG · JPG · WEBP — portrait or full body both work</p>
+        </div>
+
+        <div class="upload-preview" id="uploadPreview">
+          <img id="uploadPreviewImg" src="" alt="Preview"/>
+          <p class="upload-change" onclick="document.getElementById('fileInput').click()">↩ Choose a different photo</p>
+        </div>
+      </div>
+
+      <!-- ── CAMERA mode ── -->
+      <div class="camera-zone" id="cameraSection">
+        <p class="card-label">Live Camera</p>
+
+        <!-- Live feed -->
+        <div id="liveFeedWrap">
+          <div class="camera-container" id="cameraContainer">
+            <video id="cameraFeed" autoplay playsinline muted></video>
+            <div class="face-guide">
+              <div class="face-oval"></div>
+            </div>
+            <p class="camera-hint">Centre your face inside the oval</p>
+          </div>
+          <div class="camera-controls">
+            <button class="btn-capture" id="btnCapture" onclick="capturePhoto()">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="3" stroke-width="1.5"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+              </svg>
+              Capture Photo
+            </button>
+            <button class="btn-flip" id="btnFlip" onclick="flipCamera()" title="Flip camera">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- After capture -->
+        <div class="camera-taken" id="cameraTaken">
+          <img id="capturedPreviewImg" src="" alt="Captured"/>
+          <p class="retake-link" onclick="retakePhoto()">↩ Retake photo</p>
+        </div>
+      </div>
+
+    </div><!-- /card-body -->
+
+    <!-- Analyse button — inside card -->
+    <div style="padding: 0 28px 28px;">
+      <button class="btn-analyse" id="btnAnalyse" onclick="runAnalysis()">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+        </svg>
+        Analyse Skin Type
+      </button>
+    </div>
+  </div><!-- /card -->
+
+  <!-- Processing -->
+  <div class="card processing" id="processingCard">
+    <div class="card-body">
+      <div class="spinner"></div>
+      <p class="processing-label" id="processingMsg">Detecting face…</p>
+      <p class="processing-sub">Normalizing · Running skin analysis</p>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="results" id="resultsSection">
+
+    <!-- Before / After -->
+    <div class="card">
+      <div class="card-body">
+        <p class="card-label">Normalization</p>
+        <div class="images-row">
+          <div class="img-block">
+            <p class="img-label">Original</p>
+            <img id="origImg" src="" alt="Original"/>
+          </div>
+          <div class="img-block">
+            <p class="img-label accent">Normalized Face</p>
+            <img id="normImg" src="" alt="Normalized" class="accent-border"/>
+          </div>
+        </div>
+        <div class="face-conf" id="faceConf"></div>
+      </div>
+    </div>
+
+    <!-- Skin type -->
+    <div class="card">
+      <div class="card-body">
+        <p class="card-label">Analysis Result</p>
+        <div class="result-grid">
+          <div class="result-tile">
+            <p class="result-tile-label">Skin Type</p>
+            <p class="result-tile-value" id="resSkinType">—</p>
+          </div>
+          <div class="result-tile">
+            <p class="result-tile-label">Confidence</p>
+            <p class="result-tile-value" id="resConfidence">—</p>
+          </div>
+        </div>
+        <p class="recs-label">Recommendations</p>
+        <div id="resRecs"></div>
+      </div>
+    </div>
+
+    <button class="btn-reset" onclick="resetAll()">↩ Analyse Another</button>
+  </div>
+
+</div><!-- /page -->
+
+<canvas id="captureCanvas"></canvas>
+
+<script>
+// ─── Config ──────────────────────────────────────────────────────────────────
+const SERVER = 'http://localhost:3001';
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let currentMode    = 'upload';   // 'upload' | 'camera'
+let uploadFile     = null;       // File from upload input
+let capturedBlob   = null;       // Blob from camera capture
+let capturedPreviewSrc = null;   // data URL for display
+
+let cameraStream   = null;
+let facingMode     = 'user';     // 'user' = front cam, 'environment' = back
+
+// ─── DOM refs ─────────────────────────────────────────────────────────────────
+const fileInput         = document.getElementById('fileInput');
+const uploadZone        = document.getElementById('uploadZone');
+const uploadPreview     = document.getElementById('uploadPreview');
+const uploadPreviewImg  = document.getElementById('uploadPreviewImg');
+const uploadSection     = document.getElementById('uploadSection');
+const cameraSection     = document.getElementById('cameraSection');
+const cameraFeed        = document.getElementById('cameraFeed');
+const liveFeedWrap      = document.getElementById('liveFeedWrap');
+const cameraTaken       = document.getElementById('cameraTaken');
+const capturedPreviewImg= document.getElementById('capturedPreviewImg');
+const captureCanvas     = document.getElementById('captureCanvas');
+const btnAnalyse        = document.getElementById('btnAnalyse');
+const inputCard         = document.getElementById('inputCard');
+const processingCard    = document.getElementById('processingCard');
+const processingMsg     = document.getElementById('processingMsg');
+const resultsSection    = document.getElementById('resultsSection');
+const alertError        = document.getElementById('alertError');
+const alertWarning      = document.getElementById('alertWarning');
+const alertSuccess      = document.getElementById('alertSuccess');
+
+// ─── Mode switching ───────────────────────────────────────────────────────────
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('btnModeUpload').classList.toggle('active', mode === 'upload');
+  document.getElementById('btnModeCamera').classList.toggle('active', mode === 'camera');
+
+  uploadSection.classList.toggle('hide', mode === 'camera');
+  cameraSection.classList.toggle('show', mode === 'camera');
+
+  clearAlerts();
+
+  if (mode === 'camera') {
+    startCamera();
+  } else {
+    stopCamera();
+  }
+}
+
+// ─── Camera ───────────────────────────────────────────────────────────────────
+async function startCamera() {
+  stopCamera();
+  liveFeedWrap.style.display = 'block';
+  cameraTaken.classList.remove('show');
+  capturedBlob = null;
+
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: facingMode,
+        width:  { ideal: 1280 },
+        height: { ideal: 960 },
+      },
+      audio: false,
+    });
+    cameraFeed.srcObject = cameraStream;
+  } catch (err) {
+    const wrap = document.getElementById('liveFeedWrap');
+    wrap.innerHTML = `
+      <div class="cam-error">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+        </svg>
+        <p>Camera access was denied or is unavailable.<br/>
+        Please allow camera access in your browser settings, or use the <strong>Upload Photo</strong> option instead.</p>
+      </div>`;
+  }
+}
+
+function stopCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  cameraFeed.srcObject = null;
+}
+
+async function flipCamera() {
+  facingMode = facingMode === 'user' ? 'environment' : 'user';
+  await startCamera();
+}
+
+function capturePhoto() {
+  if (!cameraStream) return;
+
+  const video = cameraFeed;
+  const canvas = captureCanvas;
+  canvas.width  = video.videoWidth  || 640;
+  canvas.height = video.videoHeight || 480;
+  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  capturedPreviewSrc = canvas.toDataURL('image/jpeg', 0.92);
+  capturedPreviewImg.src = capturedPreviewSrc;
+
+  // Convert to Blob for upload
+  canvas.toBlob(blob => {
+    capturedBlob = blob;
+  }, 'image/jpeg', 0.92);
+
+  // Show preview, hide live feed
+  liveFeedWrap.style.display = 'none';
+  cameraTaken.classList.add('show');
+  stopCamera();
+}
+
+function retakePhoto() {
+  capturedBlob = null;
+  capturedPreviewSrc = null;
+  cameraTaken.classList.remove('show');
+  startCamera();
+}
+
+// ─── Upload input ─────────────────────────────────────────────────────────────
+fileInput.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  uploadFile = file;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    uploadPreviewImg.src = ev.target.result;
+    uploadPreview.style.display = 'block';
+    uploadZone.style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+  clearAlerts();
+  resultsSection.classList.remove('show');
+});
+
+// ─── Analysis ─────────────────────────────────────────────────────────────────
+async function runAnalysis() {
+  clearAlerts();
+
+  // Determine what to send
+  let fileToSend = null;
+  let previewSrc = null;
+
+  if (currentMode === 'upload') {
+    if (!uploadFile) { showError('Please select a photo first.'); return; }
+    fileToSend = uploadFile;
+    previewSrc = uploadPreviewImg.src;
+  } else {
+    if (!capturedBlob) { showError('Please capture a photo first.'); return; }
+    fileToSend = new File([capturedBlob], 'camera_capture.jpg', { type: 'image/jpeg' });
+    previewSrc = capturedPreviewSrc;
+  }
+
+  // UI: show processing
+  btnAnalyse.disabled = true;
+  inputCard.style.display = 'none';
+  processingCard.classList.add('show');
+  resultsSection.classList.remove('show');
+
+  const steps = ['Uploading…', 'Detecting face…', 'Normalizing…', 'Running analysis…'];
+  let si = 0;
+  const ticker = setInterval(() => {
+    processingMsg.textContent = steps[Math.min(si++, steps.length - 1)];
+  }, 800);
+
+  const fd = new FormData();
+  fd.append('image', fileToSend);
+
+  try {
+    const res  = await fetch(`${SERVER}/api/analysis/upload`, { method: 'POST', body: fd });
+    const data = await res.json();
+
+    clearInterval(ticker);
+    processingCard.classList.remove('show');
+    inputCard.style.display = 'block';
+    btnAnalyse.disabled = false;
+
+    if (!res.ok)            { showError(data.error || 'Server error.');          return; }
+    if (!data.success)      { showWarning('⚠️  ' + (data.message || 'No face detected.')); return; }
+
+    renderResults(data.analysis, previewSrc);
+    showSuccess('Analysis complete.');
+
+  } catch (err) {
+    clearInterval(ticker);
+    processingCard.classList.remove('show');
+    inputCard.style.display = 'block';
+    btnAnalyse.disabled = false;
+    showError(`Could not reach server: ${err.message}. Is test_server.py running on port 3001?`);
+  }
+}
+
+// ─── Render results ───────────────────────────────────────────────────────────
+function renderResults(a, previewSrc) {
+  document.getElementById('origImg').src  = previewSrc;
+  if (a.normalized_image_b64) {
+    document.getElementById('normImg').src = `data:image/png;base64,${a.normalized_image_b64}`;
+  }
+  document.getElementById('faceConf').textContent =
+    `✓ Face detected · ${a.face_detection_confidence ?? '–'}% confidence`;
+
+  document.getElementById('resSkinType').textContent  = a.skin_type  ?? '—';
+  document.getElementById('resConfidence').textContent = (a.confidence ?? 0) + '%';
+
+  let recs = a.recommendations;
+  if (typeof recs === 'string') { try { recs = JSON.parse(recs); } catch(_){} }
+  const recsEl = document.getElementById('resRecs');
+  recsEl.innerHTML = '';
+  (recs || []).forEach((r, i) => {
+    recsEl.insertAdjacentHTML('beforeend', `
+      <div class="rec-item">
+        <span class="rec-num">${i + 1}</span>
+        <span>${r}</span>
+      </div>`);
+  });
+
+  resultsSection.classList.add('show');
+  resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ─── Reset ────────────────────────────────────────────────────────────────────
+function resetAll() {
+  uploadFile         = null;
+  capturedBlob       = null;
+  capturedPreviewSrc = null;
+
+  fileInput.value    = '';
+  uploadPreview.style.display = 'none';
+  uploadZone.style.display    = 'block';
+
+  resultsSection.classList.remove('show');
+  clearAlerts();
+
+  if (currentMode === 'camera') {
+    cameraTaken.classList.remove('show');
+    startCamera();
+  }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ─── Alert helpers ────────────────────────────────────────────────────────────
+function clearAlerts() {
+  [alertError, alertWarning, alertSuccess].forEach(el => el.classList.remove('show'));
+}
+function showError(m)   { alertError.textContent   = m; alertError.classList.add('show');   }
+function showWarning(m) { alertWarning.textContent = m; alertWarning.classList.add('show'); }
+function showSuccess(m) { alertSuccess.textContent = m; alertSuccess.classList.add('show'); }
+</script>
+</body>
+</html>

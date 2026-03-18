@@ -1,0 +1,8 @@
+{
+  "acne": 0,
+  "blackheads": 1,
+  "dark_circles": 2,
+  "dark_spots": 3,
+  "redness": 4,
+  "texture": 5
+}
