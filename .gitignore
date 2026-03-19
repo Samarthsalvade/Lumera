@@ -37,7 +37,8 @@ backend/concern_training_data_v3/
 node_modules/
 frontend/node_modules/
 frontend/dist/
-frontend/.env
+frontend/.env.local
+frontend/.env*.local
 
 # ── OS / editor junk ──────────────────────────────────
 .DS_Store
