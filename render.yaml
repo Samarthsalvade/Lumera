@@ -4,7 +4,7 @@ services:
     runtime: python
     rootDir: backend
     buildCommand: pip install -r requirements.txt
-    startCommand: python app.py
+    startCommand: gunicorn --workers 2 --timeout 120 --bind 0.0.0.0:$PORT app:create_app()
     envVars:
       - key: SECRET_KEY
         sync: false
