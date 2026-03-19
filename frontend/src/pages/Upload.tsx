@@ -67,7 +67,7 @@ const Upload = () => {
   const [error, setError]               = useState('');
   const videoRef    = useRef<HTMLVideoElement>(null);
   const canvasRef   = useRef<HTMLCanvasElement>(null);
-  const [stream, setStream]           = useState<MediaStream | null>(null);
+  const [_stream, setStream]           = useState<MediaStream | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [facingMode, setFacingMode]   = useState<'user' | 'environment'>('user');
