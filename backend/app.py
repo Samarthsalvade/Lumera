@@ -10,13 +10,13 @@ from routes.routines import routine_bp
 from routes.products import products_bp
 from routes.report import report_bp
 import os
+import threading
 
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # CORS
     CORS(app, resources={
         r"/*": {
             "origins": [
@@ -33,7 +33,6 @@ def create_app():
     db.init_app(app)
     jwt = JWTManager(app)
 
-    # JWT error handlers
     @jwt.invalid_token_loader
     def invalid_token_callback(reason):
         print(f"❌ JWT invalid token: {reason}")
@@ -49,7 +48,6 @@ def create_app():
         print(f"❌ JWT unauthorized: {reason}")
         return {'error': f'Unauthorized: {reason}'}, 401
 
-    # Blueprints
     app.register_blueprint(auth_bp,     url_prefix='/api/auth')
     app.register_blueprint(analysis_bp, url_prefix='/api/analysis')
     app.register_blueprint(chatbot_bp,  url_prefix='/api/chatbot')
@@ -63,29 +61,40 @@ def create_app():
         db.create_all()
         print("✓ Database tables created")
 
-        # ── Pre-load ML models at startup ─────────────────────────────────────
-        # This prevents the first upload from timing out while TensorFlow loads
-        try:
-            from services.ml_service import get_analyzer
-            analyzer = get_analyzer()
-            if analyzer.model is not None:
-                print(f"✓ Skin type model pre-loaded — classes: {analyzer.skin_types}")
-            else:
-                print("⚠ Skin type model not found — using feature-based fallback")
-        except Exception as e:
-            print(f"⚠ Could not pre-load skin model: {e}")
+        def _load_models_background():
+            try:
+                from download_models import download_models
+                download_models()
+            except Exception as e:
+                print(f"⚠ Model download failed: {e}")
 
-        try:
-            from skin_concern_detector import SkinConcernDetector
-            detector = SkinConcernDetector()
-            ensemble = detector._load_ensemble()
-            if ensemble:
-                for _, weight, name in ensemble:
-                    print(f"✓ Concern model pre-loaded: {name} (weight={weight})")
-            else:
-                print("⚠ No concern models found — CV-only detection will be used")
-        except Exception as e:
-            print(f"⚠ Could not pre-load concern models: {e}")
+            try:
+                from services.ml_service import get_analyzer
+                analyzer = get_analyzer()
+                if analyzer.model is not None:
+                    print(f"✓ Skin type model ready — classes: {analyzer.skin_types}")
+                else:
+                    print("⚠ Skin type model not found — using feature-based fallback")
+            except Exception as e:
+                print(f"⚠ Could not load skin model: {e}")
+
+            try:
+                from skin_concern_detector import SkinConcernDetector
+                detector = SkinConcernDetector()
+                ensemble = detector._load_ensemble()
+                if ensemble:
+                    for _, weight, name in ensemble:
+                        print(f"✓ Concern model ready: {name} (weight={weight})")
+                else:
+                    print("⚠ No concern models found — CV-only detection will be used")
+            except Exception as e:
+                print(f"⚠ Could not load concern models: {e}")
+
+            print("✅ All models loaded and ready")
+
+        thread = threading.Thread(target=_load_models_background, daemon=True)
+        thread.start()
+        print("⏳ ML models loading in background...")
 
     @app.route('/api/health', methods=['GET'])
     def health():
