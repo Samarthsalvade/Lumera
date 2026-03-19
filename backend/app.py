@@ -11,12 +11,10 @@ import os
 from routes.routines import routine_bp
 from routes.products import products_bp
 from routes.report import report_bp
-from download_models import download_models
 
 
 
 def create_app():
-    download_models()
     app = Flask(__name__)
     app.config.from_object(Config)
 

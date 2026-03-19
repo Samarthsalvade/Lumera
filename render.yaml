@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: lumera-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt && python download_models.py
+    startCommand: python app.py
+    envVars:
+      - key: SECRET_KEY
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: MODEL_ID_SKIN
+        sync: false
+      - key: MODEL_ID_CONCERN_V3
+        sync: false
+      - key: MODEL_ID_CONCERN_V2
+        sync: false
+      - key: MODEL_ID_CONCERN_V1
+        sync: false
