@@ -18,10 +18,11 @@ __pycache__/
 *.pyo
 *.pyd
 
-# ── ML models (too large for GitHub) ─────────────────
-*.keras
-*.h5
+# ── ML models (tracked via Git LFS — do NOT ignore) ───
+# *.keras and *.h5 are committed through Git LFS
+# Only ignore tflite files (not used in production)
 *.tflite
+backend/services/*.tflite
 
 # ── JSON class index files (small, safe to include) ───
 # (these are NOT ignored — they're needed for inference)
@@ -48,19 +49,13 @@ Thumbs.db
 *.swp
 *.swo
 
-backend/ml_model/*.keras
-backend/ml_model/*.h5
+# ── Misc backend junk ─────────────────────────────────
 backend/ml_model/*.h5.bak
 backend/ml_model/*.png
 backend/ml_model/audit_suspects.txt
-
 backend/test_uploads/
-
-backend/uploads/
-backend/test_uploads/
-*/__pycache__/
-**/__pycache__/
 backend/acne
 backend/darkcircle
 backend/wrinkles
-backend/services/*.tflite
+*/__pycache__/
+**/__pycache__/
