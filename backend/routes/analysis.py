@@ -6,6 +6,7 @@ from services.ml_service import analyze_skin, get_analyzer
 from utils.helpers import allowed_file
 import os, json, time, cloudinary, cloudinary.uploader
 from flask import current_app
+from PIL import Image as PILImage
 
 analysis_bp = Blueprint('analysis', __name__)
 
@@ -17,6 +18,36 @@ def _init_cloudinary():
         api_secret = current_app.config['CLOUDINARY_API_SECRET'],
         secure     = True,
     )
+
+
+def _compress_image(filepath: str, max_dimension: int = 1024, quality: int = 85) -> str:
+    """
+    Resize and compress image so it's always under ~500KB.
+    Returns the filepath (may be changed to .jpg).
+    """
+    try:
+        with PILImage.open(filepath) as img:
+            img = img.convert('RGB')
+            if max(img.size) > max_dimension:
+                ratio = max_dimension / max(img.size)
+                new_size = (int(img.width * ratio), int(img.height * ratio))
+                img = img.resize(new_size, PILImage.LANCZOS)
+                print(f"Resized to {new_size}")
+            # Always save as JPEG for consistent compression
+            new_filepath = os.path.splitext(filepath)[0] + '_compressed.jpg'
+            img.save(new_filepath, 'JPEG', quality=quality, optimize=True)
+            size_kb = os.path.getsize(new_filepath) / 1024
+            print(f"Compressed to {size_kb:.0f} KB")
+            # Remove original if different path
+            if new_filepath != filepath:
+                try:
+                    os.remove(filepath)
+                except Exception:
+                    pass
+            return new_filepath
+    except Exception as e:
+        print(f"Compression failed, using original: {e}")
+        return filepath
 
 
 @analysis_bp.route('/upload', methods=['POST'])
@@ -46,6 +77,9 @@ def upload_image():
         filepath = os.path.join(upload_folder, filename)
         file.save(filepath)
 
+        # ── Compress image — resize to max 1024px, JPEG quality 85 ───────────
+        filepath = _compress_image(filepath, max_dimension=1024, quality=85)
+
         # ── Run ML analysis FIRST (needs local file) ─────────────────────────
         result = analyze_skin(filepath)
 
@@ -54,7 +88,7 @@ def upload_image():
         cloudinary_response = cloudinary.uploader.upload(
             filepath,
             folder        = 'lumera/uploads',
-            public_id     = filename.rsplit('.', 1)[0],
+            public_id     = os.path.splitext(os.path.basename(filepath))[0],
             resource_type = 'image',
         )
         image_url = cloudinary_response['secure_url']
@@ -113,7 +147,7 @@ def upload_image():
         else:
             final_recs = result['recommendations']
 
-        # ── Save analysis — store Cloudinary URL as image_path ────────────────
+        # ── Save analysis ─────────────────────────────────────────────────────
         analysis = Analysis(
             user_id                   = user_id,
             image_path                = image_url,
@@ -208,8 +242,6 @@ def get_analysis_result(analysis_id):
 @analysis_bp.route('/uploads/<path:filename>', methods=['GET'])
 @jwt_required()
 def get_uploaded_image(filename):
-    # Images are now on Cloudinary — this endpoint is kept for
-    # backwards compatibility but just returns a 404 with a helpful message
     return jsonify({
-        'error': 'Images are now served directly from Cloudinary. Use the image_path URL from the analysis object.'
+        'error': 'Images are now served directly from Cloudinary.'
     }), 404
