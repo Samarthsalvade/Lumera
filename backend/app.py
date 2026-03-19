@@ -21,7 +21,7 @@ def create_app():
     # CORS
     CORS(app, resources={
         r"/*": {
-            "origins": ["http://localhost:5173"],
+            "origins": ["http://localhost:5173","https://lumera-wheat.vercel.app",],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
             "supports_credentials": True,
