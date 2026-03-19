@@ -8,13 +8,15 @@ from routes.auth import auth_bp
 from routes.analysis import analysis_bp
 from routes.chatbot import chatbot_bp
 import os
-from routes.report import report_bp
 from routes.routines import routine_bp
 from routes.products import products_bp
+from routes.report import report_bp
+from download_models import download_models
 
 
 
 def create_app():
+    download_models()
     app = Flask(__name__)
     app.config.from_object(Config)
 
@@ -53,8 +55,8 @@ def create_app():
     app.register_blueprint(chatbot_bp,  url_prefix='/api/chatbot')
     app.register_blueprint(routine_bp, url_prefix='/api/routines')
     app.register_blueprint(products_bp, url_prefix='/api/products')
-    app.register_blueprint(report_bp, url_prefix='/api/report') 
-    
+    app.register_blueprint(report_bp, url_prefix='/api/report')
+
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
     with app.app_context():
@@ -71,4 +73,5 @@ def create_app():
 if __name__ == '__main__':
     app = create_app()
     print("🚀 Starting backend on http://localhost:3001")
-    app.run(debug=True, host='0.0.0.0', port=3001)
+    port = int(os.environ.get('PORT', 3001))
+    app.run(debug=False, host='0.0.0.0', port=port)
