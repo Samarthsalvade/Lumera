@@ -3,7 +3,7 @@ services:
     name: lumera-backend
     runtime: python
     rootDir: backend
-    buildCommand: pip install -r requirements.txt && python download_models.py
+    buildCommand: pip install -r requirements.txt
     startCommand: python app.py
     envVars:
       - key: SECRET_KEY
