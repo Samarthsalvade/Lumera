@@ -1,4 +1,3 @@
-#app.py
 from flask import Flask
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
@@ -7,11 +6,10 @@ from models import db
 from routes.auth import auth_bp
 from routes.analysis import analysis_bp
 from routes.chatbot import chatbot_bp
-import os
 from routes.routines import routine_bp
 from routes.products import products_bp
 from routes.report import report_bp
-
+import os
 
 
 def create_app():
@@ -21,7 +19,11 @@ def create_app():
     # CORS
     CORS(app, resources={
         r"/*": {
-            "origins": ["http://localhost:5173","https://lumera-wheat.vercel.app",],
+            "origins": [
+                "http://localhost:5173",
+                "http://localhost:5174",
+                "https://lumera-wheat.vercel.app",
+            ],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
             "supports_credentials": True,
@@ -51,15 +53,39 @@ def create_app():
     app.register_blueprint(auth_bp,     url_prefix='/api/auth')
     app.register_blueprint(analysis_bp, url_prefix='/api/analysis')
     app.register_blueprint(chatbot_bp,  url_prefix='/api/chatbot')
-    app.register_blueprint(routine_bp, url_prefix='/api/routines')
+    app.register_blueprint(routine_bp,  url_prefix='/api/routines')
     app.register_blueprint(products_bp, url_prefix='/api/products')
-    app.register_blueprint(report_bp, url_prefix='/api/report')
+    app.register_blueprint(report_bp,   url_prefix='/api/report')
 
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
     with app.app_context():
         db.create_all()
         print("✓ Database tables created")
+
+        # ── Pre-load ML models at startup ─────────────────────────────────────
+        # This prevents the first upload from timing out while TensorFlow loads
+        try:
+            from services.ml_service import get_analyzer
+            analyzer = get_analyzer()
+            if analyzer.model is not None:
+                print(f"✓ Skin type model pre-loaded — classes: {analyzer.skin_types}")
+            else:
+                print("⚠ Skin type model not found — using feature-based fallback")
+        except Exception as e:
+            print(f"⚠ Could not pre-load skin model: {e}")
+
+        try:
+            from skin_concern_detector import SkinConcernDetector
+            detector = SkinConcernDetector()
+            ensemble = detector._load_ensemble()
+            if ensemble:
+                for _, weight, name in ensemble:
+                    print(f"✓ Concern model pre-loaded: {name} (weight={weight})")
+            else:
+                print("⚠ No concern models found — CV-only detection will be used")
+        except Exception as e:
+            print(f"⚠ Could not pre-load concern models: {e}")
 
     @app.route('/api/health', methods=['GET'])
     def health():
