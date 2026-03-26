@@ -1,3 +1,4 @@
+cat > Dockerfile << 'EOF'
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -8,9 +9,7 @@ RUN apt-get update && apt-get install -y \
     libxext6 \
     libxrender-dev \
     libgomp1 \
-    libgl1-mesa-glx \
-    git \
-    git-lfs \
+    libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt .
@@ -24,3 +23,4 @@ ENV PORT=7860
 EXPOSE 7860
 
 CMD ["gunicorn", "--workers", "1", "--timeout", "300", "--bind", "0.0.0.0:7860", "app:create_app()"]
+EOF
