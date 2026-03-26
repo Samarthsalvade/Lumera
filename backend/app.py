@@ -23,6 +23,7 @@ def create_app():
                 "http://localhost:5173",
                 "http://localhost:5174",
                 "https://lumera-wheat.vercel.app",
+                "https://samarth1812-lumera-backend.hf.space",
             ],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
@@ -63,12 +64,7 @@ def create_app():
 
         def _load_models_background():
             try:
-                from download_models import download_models
-                download_models()
-            except Exception as e:
-                print(f"⚠ Model download failed: {e}")
-
-            try:
+                
                 from services.ml_service import get_analyzer
                 analyzer = get_analyzer()
                 if analyzer.model is not None:
