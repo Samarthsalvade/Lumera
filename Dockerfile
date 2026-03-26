@@ -1,4 +1,4 @@
-cat > Dockerfile << 'EOF'
+
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -23,4 +23,3 @@ ENV PORT=7860
 EXPOSE 7860
 
 CMD ["gunicorn", "--workers", "1", "--timeout", "300", "--bind", "0.0.0.0:7860", "app:create_app()"]
-EOF
