@@ -1,4 +1,3 @@
-cat > README.md << 'EOF'
 ---
 title: Lumera Backend
 emoji: 🌿
@@ -7,4 +6,3 @@ colorTo: pink
 sdk: docker
 pinned: false
 ---
-EOF
