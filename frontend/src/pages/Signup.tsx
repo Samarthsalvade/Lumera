@@ -1,150 +1,105 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { UserPlus } from 'lucide-react';
 import api from '../api/axios';
-import { AuthResponse } from '../types';
+import PageShell from '../components/PageShell';
 
 const Signup = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
+    username: '', email: '', password: '', confirmPassword: '',
   });
-  const [error, setError] = useState('');
+  const [error, setError]     = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) =>
+    setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
+      setError('Passwords do not match'); return;
     }
-
     if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters');
-      return;
+      setError('Password must be at least 6 characters'); return;
     }
-
     setLoading(true);
-
     try {
-      const response = await api.post<AuthResponse>('/auth/register', {
+      await api.post('/auth/register', {
         username: formData.username,
-        email: formData.email,
+        email:    formData.email,
         password: formData.password,
       });
-      localStorage.setItem('token', response.data.access_token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-      navigate('/dashboard');
-      window.location.reload();
+      navigate('/verify-otp', { state: { email: formData.email, purpose: 'verify' } });
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Signup failed. Please try again.');
+      const msg = err.response?.data?.error || 'Signup failed. Please try again.';
+      if (err.response?.status === 200) {
+        navigate('/verify-otp', { state: { email: formData.email, purpose: 'verify' } });
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-4 py-8">
-      <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
-        <h2 className="text-3xl font-bold text-center mb-6 bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
-          Create Account
-        </h2>
-
-        {error && (
-          <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-gray-700 font-medium mb-2">
-              Username
-            </label>
-            <input
-              type="text"
-              name="username"
-              value={formData.username}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
-              placeholder="johndoe"
-            />
-          </div>
-
-          <div>
-            <label className="block text-gray-700 font-medium mb-2">
-              Email
-            </label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
-              placeholder="you@example.com"
-            />
-          </div>
-
-          <div>
-            <label className="block text-gray-700 font-medium mb-2">
-              Password
-            </label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
-              placeholder="••••••••"
-            />
-          </div>
-
-          <div>
-            <label className="block text-gray-700 font-medium mb-2">
-              Confirm Password
-            </label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
-              placeholder="••••••••"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-          >
-            {loading ? 'Creating account...' : 'Sign Up'}
-          </button>
-        </form>
-
-        <p className="text-center mt-6 text-gray-600">
-          Already have an account?{' '}
-          <Link to="/login" className="text-purple-600 hover:underline font-medium">
-            Login
-          </Link>
-        </p>
-      </div>
+  const field = (label: string, name: string, type: string, placeholder: string) => (
+    <div>
+      <label className="block text-gray-700 font-semibold mb-2 text-base">{label}</label>
+      <input
+        type={type} name={name}
+        value={(formData as any)[name]}
+        onChange={handleChange}
+        required
+        placeholder={placeholder}
+        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-base
+                   focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+      />
     </div>
+  );
+
+  return (
+    <PageShell>
+      <div className="flex items-center justify-center py-8">
+        <div className="w-full max-w-md bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/60 p-8">
+          <div className="text-center mb-8">
+            <div className="w-14 h-14 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <UserPlus className="w-7 h-7 text-white" strokeWidth={2} />
+            </div>
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+              Create Account
+            </h2>
+            <p className="text-gray-500 mt-1 text-base">Start your Luméra skin journey</p>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 text-red-600 border border-red-200 p-3 rounded-xl mb-5 text-base">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {field('Username',         'username',        'text',     'johndoe')}
+            {field('Email',            'email',           'email',    'you@example.com')}
+            {field('Password',         'password',        'password', '••••••••')}
+            {field('Confirm Password', 'confirmPassword', 'password', '••••••••')}
+            <button type="submit" disabled={loading}
+              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white
+                         py-3.5 rounded-xl hover:from-purple-700 hover:to-indigo-700
+                         transition font-semibold text-base disabled:opacity-50
+                         disabled:cursor-not-allowed mt-2">
+              {loading ? 'Creating account...' : 'Create Account'}
+            </button>
+          </form>
+
+          <p className="text-center mt-6 text-gray-600 text-base">
+            Already have an account?{' '}
+            <Link to="/login" className="text-purple-600 hover:underline font-semibold">Login</Link>
+          </p>
+        </div>
+      </div>
+    </PageShell>
   );
 };
 
