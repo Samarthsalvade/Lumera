@@ -13,6 +13,12 @@ class User(db.Model):
     password_hash = db.Column(db.String(512), nullable=False)
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # ── Email verification ─────────────────────────────────────────────────────
+    is_verified    = db.Column(db.Boolean,  default=False, nullable=False)
+    otp_code       = db.Column(db.String(6),  nullable=True)   # 6-digit code
+    otp_expires_at = db.Column(db.DateTime,   nullable=True)   # 10-min window
+    otp_purpose    = db.Column(db.String(20), nullable=True)   # 'verify' | 'reset'
+
     # Relationships
     analyses = db.relationship(
         'Analysis', backref='user', lazy=True, cascade='all, delete-orphan'
@@ -29,10 +35,11 @@ class User(db.Model):
 
     def to_dict(self):
         return {
-            'id':         self.id,
-            'email':      self.email,
-            'username':   self.username,
-            'created_at': self.created_at.isoformat(),
+            'id':          self.id,
+            'email':       self.email,
+            'username':    self.username,
+            'is_verified': self.is_verified,
+            'created_at':  self.created_at.isoformat(),
         }
 
 
@@ -43,18 +50,13 @@ class Analysis(db.Model):
     image_path      = db.Column(db.String(500), nullable=False)
     skin_type       = db.Column(db.String(50),  nullable=False)
     confidence      = db.Column(db.Float,       nullable=False)
-    recommendations = db.Column(db.Text,        nullable=False)   # JSON string
+    recommendations = db.Column(db.Text,        nullable=False)
     created_at      = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # ── Added in v2 ───────────────────────────────────────────────────────────
     normalized_image_b64      = db.Column(db.Text,  nullable=True)
     face_detection_confidence = db.Column(db.Float, nullable=True)
+    skin_concerns             = db.Column(db.Text, nullable=True, default='{}')
 
-    # ── Added in v3 (concerns detection) ───────────────────────────────────────
-    # JSON string: {"acne": 0.45, "dark_circles": 0.12, "redness": 0.78, ...}
-    skin_concerns = db.Column(db.Text, nullable=True, default='{}')
-
-    # Relationship
     concern_details = db.relationship(
         'SkinConcern', backref='analysis', lazy=True, cascade='all, delete-orphan'
     )
@@ -76,18 +78,14 @@ class Analysis(db.Model):
 
 
 class SkinConcern(db.Model):
-    """
-    Detected skin concerns per analysis (acne, dark circles, redness, texture, hyperpigmentation).
-    Each concern has a confidence score 0–1 and optional notes.
-    """
     __tablename__ = 'skin_concerns'
     id              = db.Column(db.Integer, primary_key=True)
     analysis_id     = db.Column(db.Integer, db.ForeignKey('analyses.id'), nullable=False)
-    concern_type    = db.Column(db.String(50), nullable=False)  # 'acne', 'dark_circles', 'redness', 'texture', 'hyperpigmentation'
-    confidence      = db.Column(db.Float, nullable=False)  # 0–1
-    severity        = db.Column(db.String(20), nullable=True)  # 'mild', 'moderate', 'severe'
+    concern_type    = db.Column(db.String(50), nullable=False)
+    confidence      = db.Column(db.Float, nullable=False)
+    severity        = db.Column(db.String(20), nullable=True)
     notes               = db.Column(db.Text, nullable=True)
-    annotated_image_b64 = db.Column(db.Text, default='')   # zone highlight image
+    annotated_image_b64 = db.Column(db.Text, default='')
     created_at          = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
@@ -104,18 +102,15 @@ class SkinConcern(db.Model):
 
 
 class ProductRecommendation(db.Model):
-    """
-    Curated product database: skin type + concern combinations → product suggestions + ingredient lists.
-    """
     __tablename__ = 'product_recommendations'
     id              = db.Column(db.Integer, primary_key=True)
     product_name    = db.Column(db.String(200), nullable=False)
     brand           = db.Column(db.String(100), nullable=False)
-    skin_types      = db.Column(db.String(200), nullable=False)  # CSV: 'oily,combination,normal'
-    concerns        = db.Column(db.String(300), nullable=False)  # CSV: 'acne,redness,texture'
-    key_ingredients = db.Column(db.Text, nullable=False)  # CSV or JSON array
+    skin_types      = db.Column(db.String(200), nullable=False)
+    concerns        = db.Column(db.String(300), nullable=False)
+    key_ingredients = db.Column(db.Text, nullable=False)
     description     = db.Column(db.Text, nullable=True)
-    price_range     = db.Column(db.String(50), nullable=True)  # 'budget', 'mid', 'premium'
+    price_range     = db.Column(db.String(50), nullable=True)
     url             = db.Column(db.String(500), nullable=True)
     created_at      = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -135,21 +130,17 @@ class ProductRecommendation(db.Model):
 
 
 class Routine(db.Model):
-    """
-    Saved skincare routine: user's morning/night routine with steps, generated or edited.
-    """
     __tablename__ = 'routines'
     id              = db.Column(db.Integer, primary_key=True)
     user_id         = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    routine_type    = db.Column(db.String(20), nullable=False)  # 'morning' or 'night'
-    name            = db.Column(db.String(200), nullable=False)  # e.g., "Summer Oily Skin Routine"
-    based_on_scan   = db.Column(db.Integer, db.ForeignKey('analyses.id'), nullable=True)  # Which analysis prompted this
+    routine_type    = db.Column(db.String(20), nullable=False)
+    name            = db.Column(db.String(200), nullable=False)
+    based_on_scan   = db.Column(db.Integer, db.ForeignKey('analyses.id'), nullable=True)
     description     = db.Column(db.Text, nullable=True)
     is_active       = db.Column(db.Boolean, default=True)
     created_at      = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at      = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationship
     steps = db.relationship(
         'RoutineStep', backref='routine', lazy=True, cascade='all, delete-orphan'
     )
@@ -172,18 +163,15 @@ class Routine(db.Model):
 
 
 class RoutineStep(db.Model):
-    """
-    Individual step in a routine: e.g., "Apply cleanser", "Wait 2 min", "Rinse with water".
-    """
     __tablename__ = 'routine_steps'
-    id              = db.Column(db.Integer, primary_key=True)
-    routine_id      = db.Column(db.Integer, db.ForeignKey('routines.id'), nullable=False)
-    order           = db.Column(db.Integer, nullable=False)  # 1, 2, 3, ...
-    product_type    = db.Column(db.String(100), nullable=False)  # e.g., 'cleanser', 'toner', 'serum', 'moisturizer'
-    instruction     = db.Column(db.Text, nullable=False)
-    duration_seconds = db.Column(db.Integer, nullable=True)  # e.g., 120 for "wait 2 minutes"
-    key_ingredient  = db.Column(db.String(200), nullable=True)  # e.g., 'salicylic acid', 'retinol'
-    created_at      = db.Column(db.DateTime, default=datetime.utcnow)
+    id               = db.Column(db.Integer, primary_key=True)
+    routine_id       = db.Column(db.Integer, db.ForeignKey('routines.id'), nullable=False)
+    order            = db.Column(db.Integer, nullable=False)
+    product_type     = db.Column(db.String(100), nullable=False)
+    instruction      = db.Column(db.Text, nullable=False)
+    duration_seconds = db.Column(db.Integer, nullable=True)
+    key_ingredient   = db.Column(db.String(200), nullable=True)
+    created_at       = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
         return {
