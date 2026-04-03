@@ -22,17 +22,18 @@ A full-stack web application that analyses your skin from a photo. It classifies
 11. [Frontend Deployment — Vercel](#frontend-deployment--vercel)
 12. [Making Changes and Redeploying](#making-changes-and-redeploying)
 13. [Keep HF Space Awake — UptimeRobot](#keep-hf-space-awake--uptimerobot)
-14. [ML Models Deep Dive](#ml-models-deep-dive)
-15. [Face Detection Pipeline](#face-detection-pipeline)
-16. [Concern Detection Architecture](#concern-detection-architecture)
-17. [API Reference](#api-reference)
-18. [Database Schema](#database-schema)
-19. [Frontend Pages](#frontend-pages)
-20. [Features Deep Dive](#features-deep-dive)
-21. [Training the Models](#training-the-models)
-22. [Complete Bug Fix History](#complete-bug-fix-history)
-23. [Known Limitations](#known-limitations)
-24. [Roadmap](#roadmap)
+14. [Email OTP Authentication](#email-otp-authentication)
+15. [ML Models Deep Dive](#ml-models-deep-dive)
+16. [Face Detection Pipeline](#face-detection-pipeline)
+17. [Concern Detection Architecture](#concern-detection-architecture)
+18. [API Reference](#api-reference)
+19. [Database Schema](#database-schema)
+20. [Frontend Pages](#frontend-pages)
+21. [Features Deep Dive](#features-deep-dive)
+22. [Training the Models](#training-the-models)
+23. [Complete Bug Fix History](#complete-bug-fix-history)
+24. [Known Limitations](#known-limitations)
+25. [Roadmap](#roadmap)
 
 ---
 
@@ -47,6 +48,7 @@ A full-stack web application that analyses your skin from a photo. It classifies
 | React Router | v6 | Client-side routing with protected routes |
 | Axios | latest | HTTP client — attaches JWT Bearer token to every request automatically |
 | Vite | latest | Dev server and production bundler |
+| Lucide React | 0.383.0 | Icon library — replaces all emoji icons across auth pages |
 | **Vercel** | — | Frontend hosting — auto-deploys on every push to main |
 
 ### Backend
@@ -65,9 +67,10 @@ A full-stack web application that analyses your skin from a photo. It classifies
 | Cloudinary SDK | 1.41 | Image upload to cloud storage |
 | Groq SDK | latest | LLM API — llama-3.1-8b-instant for recommendations, routines, chatbot |
 | reportlab | 4.x | PDF report generation using Platypus high-level API |
-| requests | latest | HTTP client for Open Beauty Facts API (product image lookup) |
+| requests | latest | HTTP client for Open Beauty Facts API (product image lookup) + Vercel email relay |
 | python-dotenv | latest | Loads `.env` file into `os.environ` at startup |
 | numpy | latest | Array operations for image processing and model inference |
+| nodemailer | latest | Node.js SMTP client used in the Vercel email serverless function |
 | **Hugging Face Spaces** | — | Backend hosting — Docker-based, 16 GB RAM, free tier |
 
 ### Data & Storage
@@ -89,6 +92,8 @@ User Browser (https://lumera-wheat.vercel.app)
      │
      ▼
 Vercel CDN — static React build
+     │  also hosts /api/send-email.js — Node.js serverless function
+     │  for Gmail SMTP relay (HF Spaces blocks outbound SMTP)
      │
      │  HTTPS API calls to Hugging Face Spaces
      │
@@ -106,8 +111,12 @@ HF Spaces Docker Container (https://samarth1812-lumera-backend.hf.space)
      │    Original + compressed uploaded images
      │    Served directly to frontend via https:// URL
      │
-     └──► Groq API (llama-3.1-8b-instant)
-          Recommendations, routines, chatbot responses
+     ├──► Groq API (llama-3.1-8b-instant)
+     │    Recommendations, routines, chatbot responses
+     │
+     └──► Vercel /api/send-email (HTTPS POST, port 443)
+          Gmail SMTP relay for OTP emails
+          HF Spaces → Vercel → Gmail → user inbox
 ```
 
 **Key design decisions:**
@@ -116,6 +125,9 @@ HF Spaces Docker Container (https://samarth1812-lumera-backend.hf.space)
 - Models are baked directly into the Docker image via Git LFS — zero re-download on every deploy (unlike the previous Render setup)
 - Cloudinary URLs stored in DB instead of base64 — keeps database lean
 - Normalised face crop (300×300 padded) stored as base64 in DB for instant Results page display without re-fetching
+- OTP codes stored in the `users` table with expiry timestamp — no separate OTP table needed
+- Email sending is always fire-and-forget in a daemon thread — Flask endpoints return immediately without waiting for SMTP
+- HF Spaces blocks outbound SMTP (ports 465/587) — routed through a Vercel serverless function over HTTPS (port 443) instead
 
 ---
 
@@ -124,7 +136,7 @@ HF Spaces Docker Container (https://samarth1812-lumera-backend.hf.space)
 ```
 lumera/
 ├── .gitignore
-├── .gitattributes                     # Git LFS tracking rules — *.keras tracked via LFS
+├── .gitattributes                     # Git LFS tracking rules — *.keras and *.h5 tracked via LFS
 ├── PROJECT.md                         # This file — full project documentation
 ├── README.md                          # HF Spaces config (YAML frontmatter only)
 ├── Dockerfile                         # Root-level Dockerfile for HF Spaces Docker SDK
@@ -133,6 +145,9 @@ lumera/
 │   ├── vercel.json                    # SPA routing fix — rewrites all paths to index.html
 │   ├── .env.development               # VITE_API_URL=http://localhost:3001/api
 │   ├── .env.production                # VITE_API_URL=https://samarth1812-lumera-backend.hf.space/api
+│   ├── api/
+│   │   ├── send-email.js              # Vercel serverless function — Gmail SMTP relay for OTP emails
+│   │   └── package.json              # { "type": "commonjs" } — overrides frontend ESM for this folder
 │   ├── public/
 │   │   └── favicon.svg                # Purple gradient L icon
 │   ├── src/
@@ -144,7 +159,11 @@ lumera/
 │   │   │   └── ProtectedRoute.tsx     # Synchronous JWT guard — no async delay, no login flash
 │   │   ├── pages/
 │   │   │   ├── Home.tsx               # Landing page
-│   │   │   ├── Login.tsx / Signup.tsx
+│   │   │   ├── Login.tsx              # Two-tab login: password OR email OTP (passwordless)
+│   │   │   ├── Signup.tsx             # Registration form — redirects to VerifyOtp on submit
+│   │   │   ├── VerifyOtp.tsx          # Shared 6-digit OTP entry — handles verify/login/reset purposes
+│   │   │   ├── ForgotPassword.tsx     # Email entry for password reset flow
+│   │   │   ├── ResetPassword.tsx      # New password entry after OTP verified — strength meter included
 │   │   │   ├── Dashboard.tsx          # Scan history grid, quick actions
 │   │   │   ├── Upload.tsx             # Camera/file upload with photo guide + image compression
 │   │   │   ├── Results.tsx            # Concerns · Products · Routine tabs
@@ -153,19 +172,22 @@ lumera/
 │   │   │   ├── Routines.tsx           # Morning/night routine manager
 │   │   │   └── WeeklyReport.tsx       # Bar chart + PDF download
 │   │   ├── types/index.ts
-│   │   └── App.tsx
+│   │   └── App.tsx                    # Routes — includes /verify-otp, /forgot-password, /reset-password
 │   └── package.json
 │
 └── backend/
     ├── app.py                         # Flask factory — CORS, blueprints, background model loading
     ├── config.py                      # Reads DATABASE_URL, CLOUDINARY_*, GROQ_API_KEY from env
-    ├── models.py                      # SQLAlchemy ORM: User, Analysis, SkinConcern, Routine, etc.
+    │                                  # Includes pool_pre_ping + pool_recycle for Neon idle reconnection
+    ├── models.py                      # SQLAlchemy ORM: User (+ OTP fields), Analysis, SkinConcern, etc.
     ├── download_models.py             # Legacy — downloaded .keras files from Google Drive on Render
     │                                  # No longer called at startup — models are baked into image
     ├── skin_concern_detector.py       # SkinConcernDetector — hybrid ML ensemble + CV signals
     ├── requirements.txt
     ├── routes/
     │   ├── auth.py                    # /register /login /logout /me
+    │   │                              # + /verify-otp /resend-otp /send-login-otp
+    │   │                              # + /forgot-password /reset-password
     │   ├── analysis.py                # /upload (compress→ML→Cloudinary) /history /result/:id
     │   ├── chatbot.py                 # /chat — Groq with last 5 scan context
     │   ├── routines.py                # CRUD + /activate
@@ -174,7 +196,11 @@ lumera/
     ├── services/
     │   └── ml_service.py              # SkinAnalyzer: face detection, two-crop, CNN inference
     ├── utils/
-    │   └── helpers.py                 # allowed_file() — validates PNG/JPG/JPEG/WEBP
+    │   ├── helpers.py                 # allowed_file() — validates PNG/JPG/JPEG/WEBP
+    │   └── email_service.py           # Dual-mode OTP emailer:
+    │                                  #   local dev → Gmail SMTP directly (port 465, works on Mac)
+    │                                  #   production → POST to Vercel /api/send-email (HTTPS)
+    │                                  #   always fire-and-forget in a daemon thread
     └── ml_model/
         ├── best_model_v2.keras        # Skin type CNN v2 — tracked via Git LFS
         ├── concern_model_v3.keras     # Concern CNN v3 — tracked via Git LFS
@@ -196,6 +222,7 @@ lumera/
 - A free Groq API key — https://console.groq.com
 - A free Cloudinary account — https://cloudinary.com
 - The `.keras` model files — automatically available after `git clone` if LFS is installed
+- A Gmail account with an App Password for OTP emails (local dev uses SMTP directly)
 
 ### Backend
 
@@ -266,6 +293,12 @@ d = SkinConcernDetector()
 for model, weight, name in d._load_ensemble():
     print(f'{name}  weight={weight}')
 "
+
+# Test OTP email locally (should print OTP to console if GMAIL_USER not set,
+# or send a real email if GMAIL_USER + GMAIL_APP_PASSWORD are set in .env)
+curl -X POST http://localhost:3001/api/auth/send-login-otp \
+  -H "Content-Type: application/json" \
+  -d '{"email": "your@email.com"}'
 ```
 
 ---
@@ -286,6 +319,11 @@ GROQ_API_KEY=gsk_your_actual_key_here
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
+
+# OTP email — local dev uses Gmail SMTP directly
+# Leave VERCEL_EMAIL_URL unset locally — its absence triggers SMTP mode
+GMAIL_USER=noreplylumera@gmail.com
+GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx   # App Password, NOT your Gmail login password
 ```
 
 ### `frontend/.env.development` — local frontend
@@ -313,10 +351,25 @@ Go to: `https://huggingface.co/spaces/Samarth1812/lumera-backend` → **Settings
 | `CLOUDINARY_CLOUD_NAME` | Cloudinary dashboard → Account details |
 | `CLOUDINARY_API_KEY` | Cloudinary dashboard → Account details |
 | `CLOUDINARY_API_SECRET` | Cloudinary dashboard → Account details |
+| `VERCEL_EMAIL_URL` | `https://lumera-wheat.vercel.app/api/send-email` |
+| `EMAIL_SECRET` | Any long random string — shared with Vercel to authenticate requests |
+
+### Vercel Environment Variables — set in Vercel dashboard
+
+Go to: vercel.com → Lumera project → Settings → Environment Variables
+
+| Key | Value |
+|---|---|
+| `VITE_API_URL` | `https://samarth1812-lumera-backend.hf.space/api` |
+| `GMAIL_USER` | `noreplylumera@gmail.com` |
+| `GMAIL_APP_PASSWORD` | Your 16-char Gmail App Password |
+| `EMAIL_SECRET` | Same string as `EMAIL_SECRET` in HF Spaces Secrets |
 
 **Note:** No `MODEL_ID_*` variables are needed. Models are baked into the Docker image via Git LFS and are available on disk at container startup — no runtime download.
 
 **Important:** `DATABASE_URL` must NOT be set in your local `.env`. Without it, `config.py` falls back to `sqlite:///lumera.db` — local dev uses SQLite, production uses Neon. They never share data or interfere with each other.
+
+**Important:** `VERCEL_EMAIL_URL` must NOT be set in your local `.env`. Its absence is what triggers SMTP mode in `email_service.py` — local dev sends Gmail SMTP directly, production routes through Vercel.
 
 ---
 
@@ -332,8 +385,22 @@ SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///lumera.db')
 
 On HF Spaces the Neon URL is present. Locally it falls back to SQLite.
 
+**Connection pool settings** (added to fix Neon idle SSL drops):
+
+```python
+SQLALCHEMY_ENGINE_OPTIONS = {
+    'pool_pre_ping':  True,    # test connection before use — silently reconnects if Neon closed it
+    'pool_recycle':   300,     # recycle connections after 5 min — prevents stale SSL sessions
+    'pool_size':      3,
+    'max_overflow':   2,
+    'connect_args':   {'connect_timeout': 10},
+}
+```
+
+Without `pool_pre_ping`, the second request after an idle period always failed with `psycopg2.OperationalError: SSL connection has been closed unexpectedly`.
+
 **Tables created automatically** by SQLAlchemy's `db.create_all()` on every startup:
-- `users` — email, username, bcrypt password hash (VARCHAR 512 — scrypt hashes are long)
+- `users` — email, username, bcrypt password hash (VARCHAR 512 — scrypt hashes are long), OTP fields
 - `analyses` — skin type, confidence, Cloudinary image URL, normalized face base64, skin concerns JSON
 - `skin_concerns` — per-concern scores, severity, AI notes, annotated zone images (base64)
 - `routines` + `routine_steps` — AI-generated morning/night routines with steps
@@ -351,6 +418,19 @@ with app.app_context():
     db.session.commit()
     print('Done')
 "
+```
+
+**OTP columns migration** — run once on existing Neon databases to add the auth fields:
+
+```sql
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS is_verified    BOOLEAN   NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS otp_code       VARCHAR(6),
+  ADD COLUMN IF NOT EXISTS otp_expires_at TIMESTAMP,
+  ADD COLUMN IF NOT EXISTS otp_purpose    VARCHAR(20);
+
+-- To keep existing users logged in without re-verifying:
+UPDATE users SET is_verified = TRUE WHERE is_verified = FALSE;
 ```
 
 **Neon connection string format:**
@@ -406,9 +486,10 @@ The `.gitattributes` file at the repo root declares LFS tracking:
 
 ```
 *.keras filter=lfs diff=lfs merge=lfs -text
+*.h5    filter=lfs diff=lfs merge=lfs -text
 ```
 
-This means any `.keras` file anywhere in the repo is automatically stored in LFS rather than in the regular git object store. The actual binary data lives in the LFS server; the repo stores a small pointer file.
+Both `.keras` and `.h5` extensions are tracked. The `.h5` rule was added after HF rejected a push containing `skin_type_model.h5` as a regular binary. Any binary model file in either format is automatically stored in LFS.
 
 ### How models get into the Docker image
 
@@ -465,6 +546,7 @@ HF Spaces accepts a `Dockerfile` at the root of the pushed repository and builds
 - **Persistent container** — unlike Render's free tier which sleeps after 15 minutes of inactivity (triggering a cold start), HF Spaces containers stay running as long as UptimeRobot pings them. The Space does sleep after ~48h of total inactivity but this is prevented by UptimeRobot.
 - **Public Space required** — the free tier requires the Space to be public. The API is accessible to anyone who knows the URL, but JWT authentication on all endpoints is the actual security layer.
 - **Ephemeral filesystem** — like Render, the container filesystem resets on redeploy. This is why Cloudinary is used for image storage and Neon for the database — both are external services that survive container restarts.
+- **SMTP blocked** — HF Spaces blocks outbound connections on ports 465 and 587. Gmail SMTP cannot be used directly from HF. OTP emails are routed through a Vercel serverless function over HTTPS instead (see [Email OTP Authentication](#email-otp-authentication)).
 
 ### Root-level `Dockerfile`
 
@@ -619,6 +701,8 @@ The migration required:
 
 **`NO_APP_FILE` after config error resolved:** After fixing the README YAML, the stage changed from `CONFIG_ERROR` to `NO_APP_FILE`. HF was looking for an `app.py` or `Dockerfile` at the repo root but found them inside `backend/`. Fixed by adding a root-level Dockerfile.
 
+**`skin_type_model.h5` rejected by HF:** After adding the OTP auth feature, a push to HF was rejected because `backend/ml_model/skin_type_model.h5` existed in the git history as a regular binary (not tracked by LFS). `git filter-branch` failed due to unstaged changes. Fixed using `git filter-repo --path backend/ml_model/skin_type_model.h5 --invert-paths --force` which fully purged the file from all history. The `*.h5` pattern was then added to `.gitattributes` for LFS tracking.
+
 ---
 
 ## Frontend Deployment — Vercel
@@ -632,12 +716,15 @@ The migration required:
 - Output Directory: `dist`
 - Install Command: `npm install`
 
-**Environment variable in Vercel dashboard:**
+**Environment variables in Vercel dashboard:**
 ```
-VITE_API_URL = https://samarth1812-lumera-backend.hf.space/api
+VITE_API_URL        = https://samarth1812-lumera-backend.hf.space/api
+GMAIL_USER          = noreplylumera@gmail.com
+GMAIL_APP_PASSWORD  = (16-char Gmail App Password)
+EMAIL_SECRET        = (shared secret string, same as HF Spaces EMAIL_SECRET)
 ```
 
-This must be set in the Vercel dashboard (Settings → Environment Variables) in addition to being in `frontend/.env.production`. Vite bakes the API URL at build time — if the dashboard variable differs from the file, the dashboard value wins.
+`VITE_API_URL` must be set in the Vercel dashboard in addition to being in `frontend/.env.production`. Vite bakes the API URL at build time — if the dashboard variable differs from the file, the dashboard value wins.
 
 **`frontend/vercel.json`** — required for React Router:
 
@@ -650,6 +737,8 @@ This must be set in the Vercel dashboard (Settings → Environment Variables) in
 ```
 
 Without this, refreshing `/dashboard` returns a Vercel 404 because Vercel tries to find a static `dashboard.html` file.
+
+**`frontend/api/` directory** — Vercel serverless functions for email sending. Vercel auto-detects any `.js` file in `api/` at the project root and deploys it as a serverless function. The `frontend/api/package.json` containing `{ "type": "commonjs" }` overrides the parent `frontend/package.json`'s `"type": "module"` setting — without this, Node.js treats the function as an ES module and `require()` throws `ReferenceError`.
 
 **CORS configuration in `app.py`:**
 
@@ -679,7 +768,7 @@ git push huggingface main --force   # deploys to HF Spaces
 git push origin main                # syncs to GitHub (may need --force once)
 ```
 
-### Frontend changes (React, TypeScript)
+### Frontend changes (React, TypeScript, Vercel functions)
 
 ```bash
 git add frontend/<changed_files>
@@ -699,7 +788,8 @@ git push origin main
 | What you changed | Deploys to | Time |
 |---|---|---|
 | Any `backend/` file | HF Spaces | 1–12 min depending on whether pip cache hits |
-| Any `frontend/` file | Vercel | ~1 min |
+| Any `frontend/src/` file | Vercel | ~1 min |
+| Any `frontend/api/` file | Vercel | ~1 min |
 | ML model `.keras` file | HF Spaces | 3–5 min (LFS transfer) |
 
 **Exception — environment variables / secrets:**
@@ -720,6 +810,111 @@ HF Spaces free tier containers sleep after ~48 hours of inactivity. The first re
 7. Click **Create Monitor**
 
 The health endpoint returns `{"status": "ok", "message": "Backend is running"}` and is extremely lightweight — no database query, no ML inference. This keeps the server permanently warm at zero cost.
+
+---
+
+## Email OTP Authentication
+
+Luméra uses a full email-verified OTP authentication system. No third-party auth service is used — all OTP logic runs in Flask with codes stored in the `users` table.
+
+### Authentication flows
+
+**Signup flow:**
+1. User submits username, email, password
+2. Backend creates an unverified user row (`is_verified=False`) and generates a 6-digit OTP
+3. OTP stored in `users.otp_code` with 10-minute expiry in `users.otp_expires_at` and `otp_purpose='verify'`
+4. Email sent asynchronously via `send_otp_email()` in a daemon thread
+5. Frontend navigates to `/verify-otp` with `purpose='verify'`
+6. User enters code → backend verifies → sets `is_verified=True`, clears OTP fields, issues JWT
+7. User lands on dashboard
+
+**Login — password tab:**
+- Standard email + password check
+- If account exists but `is_verified=False`: blocks login, re-sends OTP, returns `requires_verify: true`
+- Frontend detects this flag and redirects to `/verify-otp`
+
+**Login — email code tab (passwordless):**
+1. User enters email only
+2. Backend looks up email, silently returns 200 whether or not email exists (avoids leaking account existence)
+3. If found and verified: generates OTP with `otp_purpose='login'`, sends email
+4. Frontend navigates to `/verify-otp` with `purpose='login'`
+5. User enters code → backend issues JWT → user lands on dashboard
+
+**Password reset flow:**
+1. User enters email on `/forgot-password`
+2. Backend generates OTP with `otp_purpose='reset'`, sends email (always returns 200)
+3. Frontend navigates to `/verify-otp` with `purpose='reset'`
+4. User enters code → backend returns a short-lived (15-min) `reset_token` JWT with `{ reset: true }` claim
+5. Frontend navigates to `/reset-password` with `resetToken` in router state
+6. User enters new password → backend verifies the reset claim → updates password hash
+
+### OTP fields on the User model
+
+```python
+is_verified    = db.Column(db.Boolean,  default=False, nullable=False)
+otp_code       = db.Column(db.String(6),  nullable=True)   # 6-digit numeric string
+otp_expires_at = db.Column(db.DateTime,   nullable=True)   # UTC, 10 minutes from generation
+otp_purpose    = db.Column(db.String(20), nullable=True)   # 'verify' | 'login' | 'reset'
+```
+
+A single set of OTP columns handles all three purposes — only one OTP is ever active per user at a time. Generating a new OTP always overwrites the previous one.
+
+### Email transport — dual-mode
+
+HF Spaces blocks outbound SMTP (ports 465 and 587). Gmail SMTP hangs silently and times out after 2–3 minutes, making auth endpoints appear frozen. The solution is a dual-mode transport in `utils/email_service.py`:
+
+```
+VERCEL_EMAIL_URL not set (local dev)
+    → Gmail SMTP directly on port 465
+    → Works on Mac/Linux developer machines
+    → Credentials: GMAIL_USER + GMAIL_APP_PASSWORD in backend/.env
+
+VERCEL_EMAIL_URL set (production on HF Spaces)
+    → HTTP POST to https://lumera-wheat.vercel.app/api/send-email
+    → Vercel serverless function uses nodemailer to send via Gmail SMTP
+    → HF → Vercel over HTTPS (port 443, always open) → Gmail → inbox
+    → Authenticated with shared EMAIL_SECRET to prevent abuse
+```
+
+Email sending is always fire-and-forget — `send_otp_email()` spawns a daemon thread and the Flask endpoint returns immediately. The OTP is already committed to the database before the thread starts, so there is no race condition.
+
+### Gmail App Password setup
+
+The Gmail account `noreplylumera@gmail.com` uses an App Password (not the regular Gmail login password) for SMTP authentication:
+
+1. Sign into the Gmail account → myaccount.google.com
+2. Security → 2-Step Verification → turn ON (required before App Passwords appear)
+3. Security → App passwords → name: "Lumera" → Generate
+4. Copy the 16-character code (shown once — store it immediately)
+5. Add to both `backend/.env` (local) and Vercel dashboard (production)
+
+### Vercel email function
+
+`frontend/api/send-email.js` is a Node.js serverless function deployed automatically with the frontend. It:
+- Accepts POST with `{ to, username, code, purpose, secret }`
+- Validates `secret` against `process.env.EMAIL_SECRET` — returns 401 if mismatch
+- Uses `nodemailer` with Gmail SMTP to send a branded HTML email
+- Returns `{ ok: true }` on success, error JSON on failure
+
+The function file must be `.js` (not `.cjs`) with a sibling `frontend/api/package.json` containing `{ "type": "commonjs" }` to override the parent Vite project's `"type": "module"` ESM setting.
+
+### Frontend auth pages
+
+All five auth pages match the existing design system exactly — `PageShell` background, `bg-white/90 backdrop-blur-sm` card, `bg-gradient-to-r from-purple-600 to-indigo-600` gradient headings, `text-base` font size, Lucide React icons (no emojis):
+
+| Page | Route | Icon | Purpose |
+|---|---|---|---|
+| `Login.tsx` | `/login` | `LogIn` | Two-tab: password or email code |
+| `Signup.tsx` | `/signup` | `UserPlus` | Registration — redirects to VerifyOtp |
+| `VerifyOtp.tsx` | `/verify-otp` | `ShieldCheck` / `KeyRound` / `Mail` | Shared 6-digit OTP entry, purpose-aware |
+| `ForgotPassword.tsx` | `/forgot-password` | `KeyRound` | Email entry for reset flow |
+| `ResetPassword.tsx` | `/reset-password` | `ShieldCheck` | New password with strength meter |
+
+The `VerifyOtp` page handles all three OTP purposes with a single component — title, subtitle, button label, and back-link all adapt based on the `purpose` value passed via React Router `location.state`.
+
+### Resend OTP
+
+`/api/auth/resend-otp` accepts `{ email, purpose }` and regenerates + resends the code. The frontend `VerifyOtp` page shows a 60-second cooldown timer after each resend to prevent spam. The endpoint supports all three purposes: `verify`, `login`, `reset`.
 
 ---
 
@@ -983,16 +1178,26 @@ Per-concern 224×224 annotated images with semi-transparent fills (22% opacity),
 
 ## API Reference
 
-All endpoints except `/api/auth/register` and `/api/auth/login` require `Authorization: Bearer <token>`.
+All endpoints except `/api/auth/register`, `/api/auth/login`, `/api/auth/verify-otp`, `/api/auth/resend-otp`, `/api/auth/send-login-otp`, and `/api/auth/forgot-password` require `Authorization: Bearer <token>`.
 
 ### Auth — `/api/auth`
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| POST | `/register` | No | Register new user, returns JWT |
-| POST | `/login` | No | Login, returns JWT |
-| POST | `/logout` | Yes | Registers logout on backend, clears server-side state |
+| POST | `/register` | No | Register new user (unverified), send verification OTP |
+| POST | `/login` | No | Login with password; blocks unverified accounts and re-sends OTP |
+| POST | `/logout` | Yes | Registers logout on backend |
 | GET | `/me` | Yes | Returns current user object |
+| POST | `/verify-otp` | No | Verify 6-digit OTP — purpose: `verify` / `login` / `reset` |
+| POST | `/resend-otp` | No | Regenerate and resend OTP for any purpose |
+| POST | `/send-login-otp` | No | Passwordless login step 1 — send login OTP to email |
+| POST | `/forgot-password` | No | Send password reset OTP (always returns 200) |
+| POST | `/reset-password` | Yes (reset_token) | Set new password — requires short-lived JWT with `reset: true` claim |
+
+**POST `/verify-otp`** body: `{ "email": "...", "otp": "123456", "purpose": "verify|login|reset" }`
+- `verify` → activates account, returns full JWT + user object
+- `login`  → returns full JWT + user object (passwordless login)
+- `reset`  → returns 15-minute `reset_token` JWT with `{ reset: true }` claim
 
 ### Analysis — `/api/analysis`
 
@@ -1043,6 +1248,10 @@ Response: { "reply": "For your skin type..." }
 | username | VARCHAR(80) | Unique |
 | password_hash | VARCHAR(512) | scrypt hash — 512 chars needed (was 128, caused truncation error) |
 | created_at | DATETIME | |
+| is_verified | BOOLEAN | False until email OTP confirmed — unverified users cannot log in |
+| otp_code | VARCHAR(6) | Current active OTP — overwritten on each new send |
+| otp_expires_at | DATETIME | UTC expiry — 10 minutes from generation |
+| otp_purpose | VARCHAR(20) | `verify` / `login` / `reset` — prevents OTP reuse across flows |
 
 ### analyses
 | Column | Type | Notes |
@@ -1100,8 +1309,20 @@ Response: { "reply": "For your skin type..." }
 ### Home (`/`) — Landing page for unauthenticated users
 Feature cards explaining Upload → Analyse → Recommend workflow. Stats strip (95% accuracy, 9 concerns, AI routines). `PageShell` background: #f5f3ff + dot-grid SVG + two blurred purple accent circles.
 
-### Login / Signup
-JWT auth forms. On success, stores `access_token` and `user` JSON in `localStorage`. `ProtectedRoute` checks `localStorage.getItem('token')` synchronously — no async delay, no login-page flash for logged-in users.
+### Login (`/login`)
+Two-tab card: "Password" tab (standard email + password with Forgot Password link) and "Email Code" tab (passwordless — sends OTP to inbox, redirects to VerifyOtp). On unverified-account login, backend returns `requires_verify: true` and frontend silently redirects to VerifyOtp. Uses `LogIn` and `Mail` Lucide icons.
+
+### Signup (`/signup`)
+Registration form with username, email, password, confirm password. On success, redirects to `/verify-otp` — does NOT issue a JWT immediately. Unverified accounts cannot access any protected route.
+
+### VerifyOtp (`/verify-otp`)
+Shared 6-digit OTP entry page. Receives `{ email, purpose }` via React Router `location.state`. Six individual digit input boxes with auto-focus-advance, backspace-retreat, and paste support. 60-second resend cooldown. All copy adapts based on purpose: `verify` / `login` / `reset`. Uses `ShieldCheck`, `KeyRound`, `Mail` Lucide icons.
+
+### ForgotPassword (`/forgot-password`)
+Single email field. Always navigates to `/verify-otp` after submit regardless of whether the email exists (prevents account enumeration). Uses `KeyRound` Lucide icon.
+
+### ResetPassword (`/reset-password`)
+Receives `resetToken` via React Router `location.state` — shows "Invalid session" if missing. Password + confirm fields with show/hide toggle (`Eye`/`EyeOff` icons). 4-segment strength bar (red → yellow → green). Sends `PATCH` with `Authorization: Bearer {resetToken}` header.
 
 ### Dashboard (`/dashboard`)
 Welcome banner with username + live stats. Scan history grid. `AuthImage` component checks if `image_path` starts with `https://` — if yes, renders directly from Cloudinary. If legacy local path, fetches via Axios with JWT.
@@ -1258,6 +1479,15 @@ python ml_model/train_concern_model_v3.py --train  # actually train
 | 69 | Docker build fails — `libgl1-mesa-glx` not found | Package removed in Debian trixie (python:3.12-slim base) | Replaced with `libgl1` |
 | 70 | Frontend still hitting Render after HF migration | `VITE_API_URL` not updated in Vercel dashboard | Updated both `.env.production` and Vercel dashboard env var |
 | 71 | CORS blocking HF Space requests | HF URL not in CORS origins list in `app.py` | Added `https://samarth1812-lumera-backend.hf.space` to origins |
+| 72 | OTP verify returns 400 on login purpose | `purpose='login'` fell into reset branch in VerifyOtp.tsx | Added `purpose === 'login'` to the verify/dashboard branch |
+| 73 | VerifyOtp page blank after navigation | `/verify-otp` route not registered in App.tsx | Added VerifyOtp, ForgotPassword, ResetPassword to route list |
+| 74 | Email never sent — 2.3 min delay on HF Spaces | HF blocks outbound SMTP (ports 465/587) — Gmail SMTP hung silently | Routed email through Vercel serverless function over HTTPS (port 443) |
+| 75 | Neon SSL connection closed unexpectedly | Neon drops idle Postgres connections — second request after idle always fails | Added `pool_pre_ping=True` and `pool_recycle=300` to SQLAlchemy engine options |
+| 76 | Vercel function returns 404 | `send-email.js` placed in `frontend/src/api/` instead of `frontend/api/` | Moved to correct Vercel functions directory at project root |
+| 77 | `ReferenceError: require is not defined` in Vercel function | `frontend/package.json` has `"type": "module"` — Node treats `.js` as ESM | Added `frontend/api/package.json` with `{ "type": "commonjs" }` to override for that folder |
+| 78 | `skin_type_model.h5` rejected by HF push | `.h5` file committed as regular binary, not LFS-tracked | Used `git filter-repo` to purge from history, added `*.h5` to `.gitattributes` LFS rules |
+| 79 | Login OTP send navigates to blank VerifyOtp on server error | `handleSendOtp` called `navigate()` in both success and catch paths | Only navigate inside `if (res.status === 200)` — show inline error on failure |
+| 80 | Resend OTP fails for `purpose='login'` | `/resend-otp` only allowed `verify` and `reset` purposes | Added `login` to allowed purposes list |
 
 ---
 
@@ -1281,6 +1511,10 @@ python ml_model/train_concern_model_v3.py --train  # actually train
 
 **MediaPipe disabled on HF Spaces.** `mediapipe==0.10.14` has a `protobuf<5` requirement that conflicts with TensorFlow 2.21's `protobuf>=6`. Haar cascade alone handles all face detection on production. This was also the case on Render.
 
+**Gmail OTP send rate.** Gmail free SMTP allows ~500 emails/day. Sufficient for personal/indie use. For higher traffic, migrate `frontend/api/send-email.js` to use a transactional email API (Resend, Postmark, SendGrid) by changing the nodemailer transport.
+
+**OTP email delivery to spam.** Emails sent from a personal Gmail account (`noreplylumera@gmail.com`) via a Vercel relay may occasionally land in spam, especially for first-time recipients. Adding the sender to contacts resolves this. A custom domain with SPF/DKIM records would eliminate it.
+
 ---
 
 ## Roadmap
@@ -1300,3 +1534,5 @@ python ml_model/train_concern_model_v3.py --train  # actually train
 - [ ] Confidence intervals — uncertainty range on predictions
 - [ ] Multi-language support — especially for Indian skin tone annotations
 - [ ] Skin type v3 — full-face + spatial annotation if localised datasets become available
+- [ ] Custom domain for Gmail sender — add SPF/DKIM records to eliminate OTP spam risk
+- [ ] OAuth login — Google/GitHub sign-in as alternative to email+password
