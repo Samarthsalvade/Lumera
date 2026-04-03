@@ -59,3 +59,4 @@ backend/darkcircle
 backend/wrinkles
 */__pycache__/
 **/__pycache__/
+*.png
