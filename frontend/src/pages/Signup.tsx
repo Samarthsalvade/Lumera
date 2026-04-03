@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, Info } from 'lucide-react';
 import api from '../api/axios';
 import PageShell from '../components/PageShell';
 
@@ -71,6 +71,14 @@ const Signup = () => {
               Create Account
             </h2>
             <p className="text-gray-500 mt-1 text-base">Start your Luméra skin journey</p>
+          </div>
+
+          {/* Cold start notice */}
+          <div className="flex items-start gap-2.5 bg-purple-50 border border-purple-100 rounded-xl px-4 py-3 mb-6">
+            <Info className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
+            <p className="text-purple-700 text-sm leading-snug">
+              First attempt may fail while the server wakes up — just try again if it does.
+            </p>
           </div>
 
           {error && (

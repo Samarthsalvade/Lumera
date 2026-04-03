@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { LogIn, Mail } from 'lucide-react';
+import { LogIn, Mail, Info } from 'lucide-react';
 import api from '../api/axios';
 import PageShell from '../components/PageShell';
 
@@ -73,6 +73,14 @@ const Login = () => {
               Welcome Back
             </h2>
             <p className="text-gray-500 mt-1 text-base">Sign in to your Luméra account</p>
+          </div>
+
+          {/* Cold start notice */}
+          <div className="flex items-start gap-2.5 bg-purple-50 border border-purple-100 rounded-xl px-4 py-3 mb-6">
+            <Info className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
+            <p className="text-purple-700 text-sm leading-snug">
+              First attempt may fail while the server wakes up — just try again if it does.
+            </p>
           </div>
 
           {/* Tab switcher */}
