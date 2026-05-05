@@ -13,7 +13,7 @@ export const Sk = {
   Circle: ({ className = '' }: { className?: string }) => (
     <div className={`animate-pulse rounded-full bg-gray-200 ${className}`} />
   ),
-  Card: ({ className = '', children }: { className?: string; children: React.ReactNode }) => (
+  Card: ({ className = '', children }: { className?: string; children?: React.ReactNode }) => (
     <div className={`bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/60 ${className}`}>
       {children}
     </div>
