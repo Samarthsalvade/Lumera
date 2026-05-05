@@ -1,4 +1,9 @@
+import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+
+import { AuthProvider }  from './context/AuthContext';
+import InactivityWarning from './components/InactivityWarning';
+
 import Home           from './pages/Home';
 import Login          from './pages/Login';
 import Signup         from './pages/Signup';
@@ -16,30 +21,45 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Navbar         from './components/Navbar';
 
 function App() {
-  return (
-    <Router>
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50">
-        <Navbar />
-        <Routes>
-          {/* Public */}
-          <Route path="/"                element={<Home />} />
-          <Route path="/login"           element={<Login />} />
-          <Route path="/signup"          element={<Signup />} />
-          <Route path="/verify-otp"      element={<VerifyOtp />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password"  element={<ResetPassword />} />
+  // Warning modal state lives here so AuthProvider can toggle it via callbacks
+  const [warningVisible, setWarningVisible] = useState(false);
 
-          {/* Protected */}
-          <Route path="/dashboard"    element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/upload"       element={<ProtectedRoute><Upload /></ProtectedRoute>} />
-          <Route path="/results/:id"  element={<ProtectedRoute><Results /></ProtectedRoute>} />
-          <Route path="/chatbot"      element={<ProtectedRoute><Chatbot /></ProtectedRoute>} />
-          <Route path="/progress"     element={<ProtectedRoute><Progress /></ProtectedRoute>} />
-          <Route path="/routines"     element={<ProtectedRoute><Routines /></ProtectedRoute>} />
-          <Route path="/report"       element={<ProtectedRoute><WeeklyReport /></ProtectedRoute>} />
-        </Routes>
-      </div>
-    </Router>
+  return (
+    <AuthProvider
+      onInactivityWarning={() => setWarningVisible(true)}
+      onWarningDismiss={() => setWarningVisible(false)}
+    >
+      <Router>
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50">
+          <Navbar />
+
+          <Routes>
+            {/* ── Public ─────────────────────────────────────── */}
+            <Route path="/"                element={<Home />} />
+            <Route path="/login"           element={<Login />} />
+            <Route path="/signup"          element={<Signup />} />
+            <Route path="/verify-otp"      element={<VerifyOtp />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password"  element={<ResetPassword />} />
+
+            {/* ── Protected ──────────────────────────────────── */}
+            <Route path="/dashboard"   element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/upload"      element={<ProtectedRoute><Upload /></ProtectedRoute>} />
+            <Route path="/results/:id" element={<ProtectedRoute><Results /></ProtectedRoute>} />
+            <Route path="/chatbot"     element={<ProtectedRoute><Chatbot /></ProtectedRoute>} />
+            <Route path="/progress"    element={<ProtectedRoute><Progress /></ProtectedRoute>} />
+            <Route path="/routines"    element={<ProtectedRoute><Routines /></ProtectedRoute>} />
+            <Route path="/report"      element={<ProtectedRoute><WeeklyReport /></ProtectedRoute>} />
+          </Routes>
+
+          {/* Inactivity warning — overlays everything, shown 1 min before logout */}
+          <InactivityWarning
+            visible={warningVisible}
+            onStayLoggedIn={() => setWarningVisible(false)}
+          />
+        </div>
+      </Router>
+    </AuthProvider>
   );
 }
 

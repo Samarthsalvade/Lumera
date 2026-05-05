@@ -9,7 +9,7 @@ const QUICK_QUESTIONS = [
   "What routine should I follow for my skin type?",
   "What ingredients should I avoid?",
   "How do I build a morning skincare routine?",
-  "What products help with oily skin?",
+  "How Long would it take to improve my skin with a new routine?",
 ];
 
 const BotAvatar = () => (

@@ -3,10 +3,12 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { ShieldCheck, KeyRound, Mail } from 'lucide-react';
 import api from '../api/axios';
 import PageShell from '../components/PageShell';
+import { useAuth } from '../context/AuthContext';
 
 const VerifyOtp = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { login } = useAuth();
   const { email = '', purpose = 'verify' } = (location.state as any) || {};
 
   const [digits, setDigits]       = useState<string[]>(Array(6).fill(''));
@@ -63,12 +65,14 @@ const VerifyOtp = () => {
     try {
       const res  = await api.post('/auth/verify-otp', { email, otp, purpose });
       const data = res.data;
+
       if (purpose === 'verify' || purpose === 'login') {
-        localStorage.setItem('token', data.access_token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        navigate('/dashboard');
-        window.location.reload();
+        // Use AuthContext.login() — sets localStorage + React state atomically.
+        // No window.location.reload() needed.
+        login(data.access_token, data.user);
+        navigate('/dashboard', { replace: true });
       } else {
+        // Reset flow — no session yet, just a short-lived reset token
         navigate('/reset-password', { state: { resetToken: data.reset_token } });
       }
     } catch (err: any) {

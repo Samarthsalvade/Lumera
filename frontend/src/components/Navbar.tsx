@@ -1,6 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import api from '../api/axios';
+import { useAuth } from '../context/AuthContext';
 
 const Icons = {
   dashboard: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
@@ -17,24 +18,17 @@ const Icons = {
 const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { isAuthenticated, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  useEffect(() => {
-    setIsLoggedIn(!!localStorage.getItem('token'));
-  }, [location]);
 
   const handleLogout = async () => {
     try {
       await api.post('/auth/logout');
-    } catch (e) {
+    } catch {
       // ignore — always clear local state regardless
     } finally {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      setIsLoggedIn(false);
       setIsMobileMenuOpen(false);
-      navigate('/');
+      logout('manual');   // AuthContext clears localStorage + state + redirects
     }
   };
 
@@ -50,15 +44,14 @@ const Navbar = () => {
     </Link>
   );
 
-  // Logo destination: dashboard when logged in, home when not
-  const logoTo = isLoggedIn ? '/dashboard' : '/';
+  const logoTo = isAuthenticated ? '/dashboard' : '/';
 
   return (
     <nav className="bg-white border-b border-gray-100 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
 
-          {/* Logo — goes to dashboard when logged in, home when not */}
+          {/* Logo */}
           <Link to={logoTo} className="flex items-center gap-2.5" onClick={() => setIsMobileMenuOpen(false)}>
             <div className="w-9 h-9 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
               <span className="text-white font-bold text-lg leading-none">L</span>
@@ -70,7 +63,7 @@ const Navbar = () => {
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-1">
-            {isLoggedIn ? (
+            {isAuthenticated ? (
               <>
                 {navLink('/dashboard', Icons.dashboard, 'Dashboard')}
                 {navLink('/chatbot',   Icons.chat,      'AI Chat')}
@@ -88,8 +81,8 @@ const Navbar = () => {
               </>
             ) : (
               <>
-                <Link to="/login"   className="px-4 py-2 text-base font-medium text-gray-600 hover:text-purple-700 transition">Login</Link>
-                <Link to="/signup"  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-5 py-2 rounded-xl hover:from-purple-700 hover:to-indigo-700 transition font-medium text-base shadow-sm">Sign Up</Link>
+                <Link to="/login"  className="px-4 py-2 text-base font-medium text-gray-600 hover:text-purple-700 transition">Login</Link>
+                <Link to="/signup" className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-5 py-2 rounded-xl hover:from-purple-700 hover:to-indigo-700 transition font-medium text-base shadow-sm">Sign Up</Link>
               </>
             )}
           </div>
@@ -101,7 +94,7 @@ const Navbar = () => {
 
         {isMobileMenuOpen && (
           <div className="md:hidden py-3 border-t border-gray-100 space-y-1">
-            {isLoggedIn ? (
+            {isAuthenticated ? (
               <>
                 {[
                   ['/dashboard', Icons.dashboard, 'Dashboard'],

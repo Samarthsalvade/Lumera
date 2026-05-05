@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link, useSearchParams } from 'react-router-dom';
 import { LogIn, Mail, Info } from 'lucide-react';
 import api from '../api/axios';
 import PageShell from '../components/PageShell';
+import { useAuth } from '../context/AuthContext';
 
 type Tab = 'password' | 'otp';
 
 const Login = () => {
-  const navigate  = useNavigate();
-  const location  = useLocation();
+  const navigate      = useNavigate();
+  const location      = useLocation();
+  const [searchParams] = useSearchParams();
+  const { login }     = useAuth();
 
   const [tab, setTab]           = useState<Tab>('password');
   const [form, setForm]         = useState({ email: '', password: '' });
@@ -17,10 +20,14 @@ const Login = () => {
   const [info, setInfo]         = useState('');
   const [loading, setLoading]   = useState(false);
 
+  // Message passed via router state (e.g. from signup redirect)
   useEffect(() => {
     const msg = (location.state as any)?.message;
     if (msg) setInfo(msg);
   }, [location.state]);
+
+  // Reason passed via query param when AuthContext auto-logs out
+  const logoutReason = searchParams.get('reason');
 
   const switchTab = (t: Tab) => { setTab(t); setError(''); setInfo(''); };
 
@@ -30,10 +37,10 @@ const Login = () => {
     try {
       const res  = await api.post('/auth/login', form);
       const data = res.data;
-      localStorage.setItem('token', data.access_token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      navigate('/dashboard');
-      window.location.reload();
+      // Use AuthContext.login() — it sets localStorage + React state in one shot.
+      // No window.location.reload() needed; AuthContext triggers a re-render.
+      login(data.access_token, data.user);
+      navigate('/dashboard', { replace: true });
     } catch (err: any) {
       const data = err.response?.data || {};
       if (data.requires_verify) {
@@ -75,13 +82,33 @@ const Login = () => {
             <p className="text-gray-500 mt-1 text-base">Sign in to your Luméra account</p>
           </div>
 
-          {/* Cold start notice */}
-          <div className="flex items-start gap-2.5 bg-purple-50 border border-purple-100 rounded-xl px-4 py-3 mb-6">
-            <Info className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-            <p className="text-purple-700 text-sm leading-snug">
-              First attempt may fail while the server wakes up — just try again if it does.
-            </p>
-          </div>
+          {/* Auto-logout reason banners */}
+          {logoutReason === 'inactivity' && (
+            <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5">
+              <Info className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+              <p className="text-amber-700 text-sm leading-snug">
+                You were signed out due to inactivity. Please log in again.
+              </p>
+            </div>
+          )}
+          {logoutReason === 'expired' && (
+            <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-5">
+              <Info className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+              <p className="text-red-600 text-sm leading-snug">
+                Your session expired. Please log in again.
+              </p>
+            </div>
+          )}
+
+          {/* Cold start notice — only shown when no logout reason */}
+          {!logoutReason && (
+            <div className="flex items-start gap-2.5 bg-purple-50 border border-purple-100 rounded-xl px-4 py-3 mb-6">
+              <Info className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
+              <p className="text-purple-700 text-sm leading-snug">
+                First attempt may fail while the server wakes up — just try again if it does.
+              </p>
+            </div>
+          )}
 
           {/* Tab switcher */}
           <div className="flex rounded-xl bg-gray-100 p-1 mb-6 gap-1">

@@ -146,11 +146,11 @@ const Upload = () => {
       const status = err.response?.status;
       const msg    = err.response?.data?.error || err.response?.data?.message || '';
       if (status === 401) {
-        localStorage.removeItem('token'); localStorage.removeItem('user'); navigate('/login'); return;
+        sessionStorage.removeItem('token'); sessionStorage.removeItem('user'); navigate('/login'); return;
       }
       if (status === 422) {
         const isJwt = msg.toLowerCase().includes('token') || msg.toLowerCase().includes('signature') || msg.toLowerCase().includes('expired');
-        if (isJwt) { localStorage.removeItem('token'); localStorage.removeItem('user'); navigate('/login'); return; }
+        if (isJwt) { sessionStorage.removeItem('token'); sessionStorage.removeItem('user'); navigate('/login'); return; }
         setError(msg || 'Upload failed. Please try again.'); return;
       }
       setError(msg || 'Upload failed. Please try again.');
