@@ -58,7 +58,7 @@ const WeeklyReportSkeleton = () => (
       <div className="flex items-end gap-1.5 h-52 pl-9">
         {[60, 80, 45, 90, 70, 55, 85].map((h, i) => (
           <div key={i} className="flex-1 flex flex-col justify-end">
-            <Sk.Box className="w-full rounded-t-lg animate-pulse" style={{ height: `${h}%` } as any} />
+            <div className="w-full rounded-t-lg animate-pulse bg-gray-200" style={{ height: `${h}%` }} />
           </div>
         ))}
       </div>

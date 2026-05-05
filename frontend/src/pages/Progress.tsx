@@ -63,7 +63,7 @@ const ProgressSkeleton = () => (
       </div>
 
       {/* Side panel */}
-      <Sk.Card className="p-6 space-y-3" style={{ minHeight: '420px' } as any}>
+      <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/60 p-6 space-y-3" style={{ minHeight: '420px' }}>
         <Sk.Line className="w-32 h-5" />
         <Sk.Line className="w-20 h-3" />
         {[1, 2, 3].map(i => (
