@@ -22,26 +22,20 @@ function isoDate(d: string) { return d.slice(0, 10); }
 
 const ProgressSkeleton = () => (
   <div className="max-w-6xl mx-auto">
-    {/* Back + header */}
     <div className="mb-7 space-y-2">
       <Sk.Line className="w-36 h-4" />
       <Sk.Line className="w-56 h-8" />
       <Sk.Line className="w-72 h-4" />
     </div>
-
-    {/* Stats row */}
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-7">
-      {[1, 2, 3, 4].map(i => (
+      {[1,2,3,4].map(i => (
         <Sk.Card key={i} className="p-5 space-y-2">
           <Sk.Line className="w-24 h-3" />
           <Sk.Line className="w-16 h-8" />
         </Sk.Card>
       ))}
     </div>
-
-    {/* Calendar + side panel */}
     <div className="grid lg:grid-cols-3 gap-6 mb-7">
-      {/* Calendar */}
       <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm p-6">
         <div className="flex justify-between items-center mb-5">
           <Sk.Line className="w-36 h-6" />
@@ -50,32 +44,22 @@ const ProgressSkeleton = () => (
             <Sk.Box className="w-9 h-9" />
           </div>
         </div>
-        {/* Day labels */}
         <div className="grid grid-cols-7 mb-2 gap-1">
           {[...Array(7)].map((_, i) => <Sk.Line key={i} className="h-4 mx-auto w-8" />)}
         </div>
-        {/* Day cells */}
         <div className="grid grid-cols-7 gap-1">
-          {[...Array(35)].map((_, i) => (
-            <Sk.Box key={i} className="aspect-square rounded-xl" />
-          ))}
+          {[...Array(35)].map((_, i) => <Sk.Box key={i} className="aspect-square rounded-xl" />)}
         </div>
       </div>
-
-      {/* Side panel */}
       <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-white/60 p-6 space-y-3" style={{ minHeight: '420px' }}>
         <Sk.Line className="w-32 h-5" />
         <Sk.Line className="w-20 h-3" />
-        {[1, 2, 3].map(i => (
-          <Sk.Box key={i} className="h-20 w-full" />
-        ))}
-      </Sk.Card>
+        {[1,2,3].map(i => <Sk.Box key={i} className="h-20 w-full" />)}
+      </div>
     </div>
-
-    {/* Distribution */}
     <div className="bg-white rounded-2xl shadow-sm p-6 mb-7 space-y-4">
       <Sk.Line className="w-48 h-6" />
-      {[1, 2, 3].map(i => (
+      {[1,2,3].map(i => (
         <div key={i} className="space-y-1.5">
           <div className="flex justify-between">
             <Sk.Line className="w-24" />
@@ -85,14 +69,12 @@ const ProgressSkeleton = () => (
         </div>
       ))}
     </div>
-
-    {/* Table */}
     <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
       <div className="p-6 border-b border-gray-100">
         <Sk.Line className="w-32 h-6" />
       </div>
       <div className="divide-y divide-gray-100">
-        {[1, 2, 3, 4, 5].map(i => (
+        {[1,2,3,4,5].map(i => (
           <div key={i} className="flex items-center gap-6 px-6 py-4">
             <Sk.Line className="w-32" />
             <Sk.Box className="w-24 h-7 rounded-full" />
