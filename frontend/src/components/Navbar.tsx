@@ -1,4 +1,4 @@
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -16,7 +16,6 @@ const Icons = {
 };
 
 const Navbar = () => {
-  const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
