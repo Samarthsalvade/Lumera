@@ -42,13 +42,7 @@ const WeeklyReportSkeleton = () => (
       ))}
     </div>
 
-    {/* Narrative */}
-    <div className="bg-purple-50 border border-purple-100 rounded-2xl p-6 mb-7 space-y-2">
-      <Sk.Line className="w-48 h-5" />
-      <Sk.Line className="w-full h-3" />
-      <Sk.Line className="w-5/6 h-3" />
-      <Sk.Line className="w-4/6 h-3" />
-    </div>
+   
 
     {/* Chart */}
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-7">
